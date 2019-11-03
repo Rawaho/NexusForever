@@ -1028,6 +1028,10 @@ namespace NexusForever.WorldServer.Database.Character.Model
                     .HasColumnName("propertyInfoId")
                     .HasDefaultValueSql("'0'");
 
+                entity.Property(e => e.ResidenceInfoId)
+                    .HasColumnName("residenceInfoId")
+                    .HasDefaultValueSql("'0'");
+
                 entity.Property(e => e.ResourceSharing)
                     .HasColumnName("resourceSharing")
                     .HasDefaultValueSql("'0'");
