@@ -25,12 +25,12 @@ using NexusForever.WorldServer.Game.Reputation;
 using NexusForever.WorldServer.Game.Reputation.Static;
 using NexusForever.WorldServer.Game.Setting;
 using NexusForever.WorldServer.Game.Setting.Static;
-using NexusForever.WorldServer.Game.Social;
 using NexusForever.WorldServer.Game.Social.Static;
 using NexusForever.WorldServer.Game.Static;
 using NexusForever.WorldServer.Network;
 using NexusForever.WorldServer.Network.Message.Model;
 using NexusForever.WorldServer.Network.Message.Model.Shared;
+using NetworkGroupMember = NexusForever.WorldServer.Network.Message.Model.Shared.GroupMember;
 
 namespace NexusForever.WorldServer.Game.Entity
 {
@@ -132,6 +132,9 @@ namespace NexusForever.WorldServer.Game.Entity
         /// 0 is always returned for online players.
         /// </remarks>
         public float? GetOnlineStatus() => 0f;
+
+        public Group.Model.GroupMember GroupMember { get; set; }
+        public Group.Model.GroupInvite GroupInvite { get; set; }
 
         public Inventory Inventory { get; }
         public CurrencyManager CurrencyManager { get; }
@@ -974,6 +977,28 @@ namespace NexusForever.WorldServer.Game.Entity
 
             // check if parent node has required reputation
             return GetDispositionFromReputation(node.Parent);
+        }
+
+        /// <summary>
+        /// Build the <see cref="GroupMember"/> instance for the <see cref="Player"/>
+        /// </summary>
+        public NetworkGroupMember BuildGroupMember()
+        {
+            return new NetworkGroupMember
+            {
+                Name            = Name,
+                Faction         = Faction1,
+                Race            = Race,
+                Class           = Class,
+                Sex             = Sex,
+                Level           = (byte)Level,
+                EffectiveLevel  = (byte)Level,
+                Path            = Path,
+                Realm           = WorldServer.RealmId,
+                WorldZoneId     = (ushort)Zone.Id,
+                MapId           = Map.Entry.Id,
+                SyncedToGroup   = true
+            };
         }
     }
 }

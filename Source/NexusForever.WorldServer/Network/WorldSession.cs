@@ -4,6 +4,8 @@ using System.Net.Sockets;
 using NexusForever.Database.Auth.Model;
 using NexusForever.Database.Character.Model;
 using NexusForever.Shared.Cryptography;
+using NexusForever.Shared.Database;
+using NexusForever.Shared.Game.Events;
 using NexusForever.Shared.Network;
 using NexusForever.Shared.Network.Message;
 using NexusForever.Shared.Network.Message.Model;
@@ -83,6 +85,22 @@ namespace NexusForever.WorldServer.Network
         {
             var packet = new ClientGamePacket(packedWorld.Data);
             HandlePacket(packet);
+        }
+
+        /// <summary>
+        /// Get the <see cref="WorldSession"/> supplied from PlayerName.
+        /// </summary>
+        public WorldSession GetSessionByName(string playerName)
+        {
+            var character = DatabaseManager.Instance.CharacterDatabase.GetCharacterByName(playerName).Result;
+            if (character == null)
+                return null;
+
+            var session = NetworkManager<WorldSession>.Instance.GetSession(s => s.Player?.CharacterId == character.Id);
+            if (session == null)
+                return null;
+
+            return session;
         }
     }
 }
