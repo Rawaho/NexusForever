@@ -26,7 +26,7 @@ namespace NexusForever.WorldServer.Network.Message.Handler
         [MessageHandler(GameMessageOpcode.ClientGroupInvite)]
         public static void HandleGroupInvite(WorldSession session, ClientGroupInvite groupInvite)
         {
-            var targetSession = session.GetSessionByName(groupInvite.Name);
+            WorldSession targetSession = session.GetSessionByName(groupInvite.Name);
             if (targetSession == null)
             {
                 SendGroupResult(session, GroupResult.PlayerNotFound, 0, groupInvite.Name);
@@ -47,14 +47,14 @@ namespace NexusForever.WorldServer.Network.Message.Handler
                 return;
             }
 
-            var group = GroupManager.Instance.GetGroup(session.Player) ?? GroupManager.Instance.CreateGroup(session.Player);
+            Group group = GroupManager.Instance.GetGroup(session.Player) ?? GroupManager.Instance.CreateGroup(session.Player);
             group.Invite(session.Player, targetSession.Player);
         }
 
         [MessageHandler(GameMessageOpcode.ClientGroupInviteResponse)]
         public static void HandleGroupInviteResponse(WorldSession session, ClientGroupInviteResponse response)
         {
-            Console.WriteLine();
+            
         }
     }
 }

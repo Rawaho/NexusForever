@@ -35,7 +35,7 @@ namespace NexusForever.WorldServer.Game.Group.Model
         {
             get
             {
-                var flags = this.flags;
+                GroupMemberInfoFlags flags = this.flags;
                 if (IsPartyLeader)
                     flags |= GroupMemberInfoFlags.GroupAdminFlags;
                 else
@@ -72,7 +72,7 @@ namespace NexusForever.WorldServer.Game.Group.Model
             if (other.Id != Id)
                 return false;
 
-            var allowedFlags = GroupMemberInfoFlags.RoleFlags
+            GroupMemberInfoFlags allowedFlags = GroupMemberInfoFlags.RoleFlags
                              | GroupMemberInfoFlags.HasSetReady
                              | GroupMemberInfoFlags.Ready;
             return (updateFlags & allowedFlags) == updateFlags;
@@ -83,7 +83,7 @@ namespace NexusForever.WorldServer.Game.Group.Model
         /// </summary>
         public void PrepareForReadyCheck()
         {
-            var unset = GroupMemberInfoFlags.HasSetReady
+            GroupMemberInfoFlags unset = GroupMemberInfoFlags.HasSetReady
                       | GroupMemberInfoFlags.Ready;
             flags &= ~unset;
             flags |= GroupMemberInfoFlags.Pending;

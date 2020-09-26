@@ -41,15 +41,16 @@ namespace NexusForever.WorldServer.Game.Group
         /// </summary>
         private GroupMember CreateMember(Player player)
         {
-            var member = new GroupMember(NextMemberId(), this, player);
+            GroupMember member = new GroupMember(NextMemberId(), this, player);
             members.Add(member.Id, member);
+
             player.GroupMember = member;
             return member;
         }
 
         public void Update(double lastTick)
         {
-            while (invites.TryDequeue(out var groupInvite))
+            while (invites.TryDequeue(out GroupInvite groupInvite))
                 groupInvite.SendInvite();
         }
 
@@ -69,7 +70,7 @@ namespace NexusForever.WorldServer.Game.Group
         /// </summary>
         public List<NetworkGroupMember> BuildGroupMembers()
         {
-            var memberList = new List<NetworkGroupMember>();
+            List<NetworkGroupMember> memberList = new();
             foreach (var member in members.Values)
                 memberList.Add(member.BuildGroupMember());
 
@@ -81,7 +82,7 @@ namespace NexusForever.WorldServer.Game.Group
         /// </summary>
         public GroupInvite CreateInvite(GroupMember inviter, Player invitedPlayer, GroupInviteType type)
         {
-            var invite = new GroupInvite(this, invitedPlayer, inviter, type);
+            GroupInvite invite = new GroupInvite(this, invitedPlayer, inviter, type);
             invites.Enqueue(invite);
 
             invitedPlayer.GroupInvite = invite;
