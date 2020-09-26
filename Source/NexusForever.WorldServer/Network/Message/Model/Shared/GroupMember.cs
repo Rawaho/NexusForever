@@ -1,6 +1,7 @@
 ﻿using NexusForever.Shared.Network;
 using NexusForever.Shared.Network.Message;
 using NexusForever.WorldServer.Game.Entity.Static;
+using NexusForever.WorldServer.Game.Reputation.Static;
 using System.Collections.Generic;
 
 namespace NexusForever.WorldServer.Network.Message.Model.Shared
