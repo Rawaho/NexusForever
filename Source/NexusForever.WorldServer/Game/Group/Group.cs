@@ -1,25 +1,36 @@
-﻿using NexusForever.Shared;
+﻿using Microsoft.EntityFrameworkCore.Internal;
+using NexusForever.Shared;
 using NexusForever.Shared.Network.Message;
 using NexusForever.WorldServer.Game.Entity;
 using NexusForever.WorldServer.Game.Group.Model;
 using NexusForever.WorldServer.Game.Group.Static;
 using NexusForever.WorldServer.Network.Message.Handler;
-using NexusForever.WorldServer.Network.Message.Model;
-using System.Collections.Concurrent;
+using NexusForever.WorldServer.Network.Message.Model.Shared;
 using System.Collections.Generic;
 using System.Linq;
+using GroupMember = NexusForever.WorldServer.Game.Group.Model.GroupMember;
 using NetworkGroupMember = NexusForever.WorldServer.Network.Message.Model.Shared.GroupMember;
 
 namespace NexusForever.WorldServer.Game.Group
 {
-    public class Group : IUpdate
+    public class Group : IUpdate, IBuildable<GroupInfo>
     {
-        private ConcurrentQueue<GroupInvite> invites = new ConcurrentQueue<GroupInvite>();
-        private Dictionary<ulong, GroupMember> members = new Dictionary<ulong, GroupMember>();
+        private readonly Dictionary<ulong, GroupInvite> invites = new Dictionary<ulong, GroupInvite>();
+        private readonly Dictionary<ulong, GroupMember> members = new Dictionary<ulong, GroupMember>();
 
+        /// <summary>
+        /// Id for the current <see cref="Group"/>
+        /// </summary>
         public ulong Id { get; }
+
+        /// <summary>
+        /// The <see cref="Group"/> leader
+        /// </summary>
         public GroupMember Leader { get; }
 
+        /// <summary>
+        /// Creates an instance of <see cref="Group"/>
+        /// </summary>
         public Group(ulong id, Player leader)
         {
             Id     = id;
@@ -32,14 +43,16 @@ namespace NexusForever.WorldServer.Game.Group
         public void Invite(Player inviter, Player invitedPlayer)
         {
             GroupHandler.SendGroupResult(inviter.Session, GroupResult.Sent, Id, invitedPlayer.Name);
-            CreateInvite(inviter.GroupMember, invitedPlayer, GroupInviteType.Invite);
+
+            GroupInvite invite = CreateInvite(inviter.GroupMember, invitedPlayer, GroupInviteType.Invite);
+            invite.SendInvite();
         }
 
         /// <summary>
         /// Create and add a new <see cref="GroupMember"/>
         /// to the <see cref="Group"/>
         /// </summary>
-        private GroupMember CreateMember(Player player)
+        public GroupMember CreateMember(Player player)
         {
             GroupMember member = new GroupMember(NextMemberId(), this, player);
             members.Add(member.Id, member);
@@ -50,8 +63,18 @@ namespace NexusForever.WorldServer.Game.Group
 
         public void Update(double lastTick)
         {
-            while (invites.TryDequeue(out GroupInvite groupInvite))
-                groupInvite.SendInvite();
+            foreach (GroupInvite invite in invites.Values)
+            {
+                invite.ExpirationTime -= lastTick;
+                if (invite.ExpirationTime <= 0d)
+                {
+                    // Invite expired
+
+
+                    // Delete the current invite
+                    RevokeInvite(invite);
+                }
+            }
         }
 
         /// <summary>
@@ -66,13 +89,60 @@ namespace NexusForever.WorldServer.Game.Group
         }
 
         /// <summary>
+        /// Get the next available InviteId
+        /// </summary>
+        /// <returns></returns>
+        public ulong NextInviteId()
+        {
+            if (invites.Count > 0)
+                return invites.Last().Key + 1UL;
+            else
+                return 1;
+        }
+
+        /// <summary>
         /// Builds all <see cref="GroupMember"/>s into <see cref="NetworkGroupMember"/>s.
         /// </summary>
         public List<NetworkGroupMember> BuildGroupMembers()
         {
             List<NetworkGroupMember> memberList = new();
             foreach (var member in members.Values)
+            {
+                NetworkGroupMember groupMember = member.BuildGroupMember();
+                groupMember.GroupMemberId = (ushort)member.Id;
                 memberList.Add(member.BuildGroupMember());
+            }
+
+            return memberList;
+        }
+
+        /// <summary>
+        /// Builds all <see cref="GroupMember"/> into <see cref="GroupMemberInfo"/>
+        /// </summary>
+        public List<GroupMemberInfo> BuildMemberInfo()
+        {
+            List<GroupMemberInfo> memberList = new();
+            uint groupIndex = 1;
+
+            foreach (var member in members.Values)
+            {
+                NetworkGroupMember groupMember = member.BuildGroupMember();
+                groupMember.GroupMemberId = (ushort)member.Id;
+
+                GroupMemberInfo memberInfo = new GroupMemberInfo
+                {
+                    Member = groupMember,
+                    GroupIndex = ++groupIndex,
+                    MemberIdentity = new TargetPlayerIdentity
+                    {
+                        CharacterId = member.Player.CharacterId,
+                        RealmId = WorldServer.RealmId
+                    },
+                    Flags = (uint)member.Flags
+                };
+
+                memberList.Add(memberInfo);
+            }
 
             return memberList;
         }
@@ -82,8 +152,9 @@ namespace NexusForever.WorldServer.Game.Group
         /// </summary>
         public GroupInvite CreateInvite(GroupMember inviter, Player invitedPlayer, GroupInviteType type)
         {
-            GroupInvite invite = new GroupInvite(this, invitedPlayer, inviter, type);
-            invites.Enqueue(invite);
+            GroupInvite invite = new GroupInvite(NextInviteId(), this, invitedPlayer, inviter, type);
+            if (!invites.TryAdd(invite.InviteId, invite))
+                return null;
 
             invitedPlayer.GroupInvite = invite;
             return invite;
@@ -97,6 +168,55 @@ namespace NexusForever.WorldServer.Game.Group
         {
             foreach (var member in members.Values)
                 member.Player.Session.EnqueueMessageEncrypted(message);
+        }
+
+        /// <summary>
+        /// Revoke <see cref="GroupInvite"/>
+        /// </summary>
+        public void RevokeInvite(GroupInvite invite, bool isExpired = false)
+        {
+            if (!invites.ContainsKey(invite.InviteId))
+                return;
+
+            invites.Remove(invite.InviteId);
+            invite.TargetPlayer.GroupInvite = null;
+
+            if (!isExpired)
+                return;
+
+            switch (invite.Type)
+            {
+                case GroupInviteType.Invite:
+                    GroupHandler.SendGroupResult(Leader.Player.Session, GroupResult.ExpiredInviter, Id, invite.TargetPlayer.Name);
+                    GroupHandler.SendGroupResult(invite.TargetPlayer.Session, GroupResult.ExpiredInvitee, Id, invite.TargetPlayer.Name);
+                    break;
+                case GroupInviteType.Request:
+                case GroupInviteType.Referral:
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// Build the <see cref="GroupInfo"/> structure from the current <see cref="Group"/>
+        /// </summary>
+        public GroupInfo Build()
+        {
+            return new GroupInfo
+            {
+                GroupId             = Id,
+                LeaderIdentity      = new TargetPlayerIdentity
+                {
+                    CharacterId     = Leader.Player.CharacterId,
+                    RealmId         = WorldServer.RealmId
+                },
+                LootRule            = LootRule.FreeForAll,
+                LootRuleHarvest     = HarvestLootRule.FirstTagger,
+                LootRuleThreshold   = LootThreshold.Artifact,
+                LootThreshold       = LootThreshold.Artifact,
+                MaxGroupSize        = 5,   //< Hardcoded for now
+                MemberInfos         = BuildMemberInfo(),
+                RealmId             = WorldServer.RealmId,
+            };
         }
     }
 }

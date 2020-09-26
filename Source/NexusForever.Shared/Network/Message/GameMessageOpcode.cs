@@ -144,7 +144,7 @@ namespace NexusForever.Shared.Network.Message
         ServerGroupInviteResult         = 0x041D,
         ServerGroupInviteReceived       = 0x041F,
         ClientGroupRequestJoin          = 0x0422,
-        ServerGroupRequestJoin          = 0x0424,
+        ServerGroupRequestJoinResponse  = 0x0424,
         ServerGroupJoin                 = 0x0427,
         ClientGroupKick                 = 0x0428,
         ClientGroupLeave                = 0x042B,

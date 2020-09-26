@@ -14,9 +14,9 @@ namespace NexusForever.WorldServer.Game.Group.Model
         private GroupMemberInfoFlags flags;
 
         public bool IsPartyLeader => Group.Leader?.Id == Id;
-        public bool CanKick => (Flags & GroupMemberInfoFlags.CanKick) != 0;
-        public bool CanInvite => (Flags & GroupMemberInfoFlags.CanInvite) != 0;
-        public bool CanMark => (Flags & GroupMemberInfoFlags.CanMark) != 0;
+        public bool CanKick => IsPartyLeader || (Flags & GroupMemberInfoFlags.CanKick) != 0;
+        public bool CanInvite => IsPartyLeader || (Flags & GroupMemberInfoFlags.CanInvite) != 0;
+        public bool CanMark => IsPartyLeader || (Flags & GroupMemberInfoFlags.CanMark) != 0;
         public bool CanReadyCheck => IsPartyLeader || (Flags & GroupMemberInfoFlags.CanReadyCheck) != 0;
 
         public GroupMember(ulong id, Group group, Player player)
@@ -24,7 +24,6 @@ namespace NexusForever.WorldServer.Game.Group.Model
             Id      = id;
             Group   = group;
             Player  = player;
-            flags   = 0;
             ZoneId  = (ushort)player.Zone.Id;
         }
 

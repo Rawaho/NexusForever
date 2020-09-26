@@ -1,9 +1,7 @@
 ﻿using NexusForever.Shared;
 using NexusForever.WorldServer.Game.Entity;
-using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 
 namespace NexusForever.WorldServer.Game.Group
 {
@@ -19,18 +17,36 @@ namespace NexusForever.WorldServer.Game.Group
         /// </summary>
         public Group CreateGroup(Player player)
         {
-            var group = new Group(NextGroupId(), player);
+            Group group = new Group(NextGroupId(), player);
+
             groups.Add(group.Id, group);
+
+            // Player is already leader in a group
+            if (groupOwner.ContainsKey(player.CharacterId))
+                return null;
+
             groupOwner.Add(player.CharacterId, group);
+
             return group;
         }
 
         /// <summary>
         /// Get the current <see cref="Group"/> from the supplied <see cref="Player"/>
         /// </summary>
-        public Group GetGroup(Player player)
+        public Group GetGroupByLeader(Player player)
         {
             if (!groupOwner.TryGetValue(player.CharacterId, out var group))
+                return null;
+
+            return group;
+        }
+
+        /// <summary>
+        /// Get a <see cref="Group"/> with the supplied <see cref="ulong"/> Group Id
+        /// </summary>
+        public Group GetGroupById(ulong groupId)
+        {
+            if (!groups.TryGetValue(groupId, out Group group))
                 return null;
 
             return group;

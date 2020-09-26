@@ -1,8 +1,6 @@
-﻿using NexusForever.Shared.Network.Message;
-using NexusForever.WorldServer.Game.Entity;
+﻿using NexusForever.WorldServer.Game.Entity;
 using NexusForever.WorldServer.Game.Group.Static;
 using NexusForever.WorldServer.Network.Message.Model;
-using System;
 
 namespace NexusForever.WorldServer.Game.Group.Model
 {
@@ -10,14 +8,19 @@ namespace NexusForever.WorldServer.Game.Group.Model
     {
         public const double InviteTimeout = 30d;
 
-        public Group Group { get; set; }
-        public Player TargetPlayer { get; set; }
-        public GroupMember Inviter { get; set; }
-        public GroupInviteType Type { get; set; }
-        public DateTime ExpirationTime { get; set; } = DateTime.UtcNow.AddSeconds(InviteTimeout);
+        public ulong InviteId { get; }
+        public Group Group { get;}
+        public Player TargetPlayer { get; }
+        public GroupMember Inviter { get; }
+        public GroupInviteType Type { get; }
+        public double ExpirationTime { get; set; } = InviteTimeout;
 
-        public GroupInvite(Group group, Player player, GroupMember inviter, GroupInviteType type)
+        /// <summary>
+        /// Creates an instance of <see cref="GroupInvite"/>
+        /// </summary>
+        public GroupInvite(ulong id, Group group, Player player, GroupMember inviter, GroupInviteType type)
         {
+            InviteId        = id;
             Group           = group;
             TargetPlayer    = player;
             Inviter         = inviter;

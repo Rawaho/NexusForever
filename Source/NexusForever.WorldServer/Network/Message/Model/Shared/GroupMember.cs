@@ -43,8 +43,8 @@ namespace NexusForever.WorldServer.Network.Message.Model.Shared
         public uint Unknown4 { get; set; }
         public ushort GroupMemberId { get; set; }
 
-        public List<UnknownStruct0> UnknownStruct0List { get; set; } = new List<UnknownStruct0>();
-        public List<UnknownStruct1> UnknownStruct1List { get; set; } = new List<UnknownStruct1>();
+        public List<UnknownStruct0> UnknownStruct0List { get; set; } = new();
+        public List<UnknownStruct1> UnknownStruct1List { get; set; } = new();
 
         public TargetPlayerIdentity MentoringTarget { get; set; }
 
@@ -65,7 +65,7 @@ namespace NexusForever.WorldServer.Network.Message.Model.Shared
         public ushort Realm { get; set; }
         public ushort WorldZoneId { get; set; }
         public uint MapId { get; set; }
-        public uint Unknown26 { get; set; }
+        public uint PhaseId { get; set; } = 1;
         public bool SyncedToGroup { get; set; }
 
         public uint Unknown28 { get; set; }
@@ -84,7 +84,8 @@ namespace NexusForever.WorldServer.Network.Message.Model.Shared
             writer.Write(Unknown4, 17u);
             writer.Write(GroupMemberId);
 
-            UnknownStruct0List.ForEach(i => i.Write(writer));
+            for (var i = 0; i < 5; ++i)
+                new UnknownStruct0().Write(writer);
 
             if (MentoringTarget == null)
             {
@@ -110,7 +111,7 @@ namespace NexusForever.WorldServer.Network.Message.Model.Shared
             writer.Write(Realm, 14u);
             writer.Write(WorldZoneId, 15u);
             writer.Write(MapId);
-            writer.Write(Unknown26);
+            writer.Write(PhaseId);
             writer.Write(SyncedToGroup);
             writer.Write(Unknown28);
             writer.Write(Unknown29);
