@@ -8,7 +8,7 @@ namespace NexusForever.WorldServer.Network.Message.Model.Shared
     public class GroupInfo : IWritable
     {
         public ulong GroupId { get; set; }
-        public uint Flags { get; set; }         //< Probably flags, not sure
+        public uint Flags { get; set; } = 1;
         public List<GroupMemberInfo> MemberInfos { get; set; } = new();
         public uint MaxGroupSize { get; set; }
 

@@ -1,10 +1,11 @@
-﻿using NexusForever.WorldServer.Game.Entity;
+﻿using NexusForever.Shared.Network.Message;
+using NexusForever.WorldServer.Game.Entity;
 using NexusForever.WorldServer.Game.Group.Static;
 using NetworkGroupMember = NexusForever.WorldServer.Network.Message.Model.Shared.GroupMember;
 
 namespace NexusForever.WorldServer.Game.Group.Model
 {
-    public class GroupMember
+    public class GroupMember : IBuildable<NetworkGroupMember>
     {
         public ulong Id { get; }
         public Group Group { get; }
@@ -108,6 +109,6 @@ namespace NexusForever.WorldServer.Game.Group.Model
         /// <summary>
         /// Build the <see cref="NetworkGroupMember"/>.
         /// </summary>
-        public NetworkGroupMember BuildGroupMember() => Player.BuildGroupMember();
+        public NetworkGroupMember Build() => Player.BuildGroupMember();
     }
 }

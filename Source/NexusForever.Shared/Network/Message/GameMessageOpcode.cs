@@ -161,6 +161,7 @@ namespace NexusForever.Shared.Network.Message
         ClientQuestShareResult          = 0x045E,
         ClientQuestShare                = 0x045F,
         ServerGroupMaxSizeChange        = 0x0462,
+        ServerGroupMemberStatUpdate     = 0x0466,
         ServerGroupUpdatePlayerRealm    = 0x0467,
         ServerGroupPositionUpdate       = 0x0469,
         Server0497                      = 0x0497, // guild info

@@ -116,6 +116,11 @@ namespace NexusForever.WorldServer.Network.Message.Handler
 
             // For now send GroupResult.Accepted
             SendGroupResult(leaderSession, GroupResult.Accepted, response.GroupId, session.Player.Name);
+
+            foreach (Game.Group.Model.GroupMember member in joinedGroup.Members.Values)
+            {
+
+            }
         }
     }
 }

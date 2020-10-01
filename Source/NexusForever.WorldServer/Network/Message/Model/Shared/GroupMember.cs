@@ -43,7 +43,7 @@ namespace NexusForever.WorldServer.Network.Message.Model.Shared
         public uint Unknown4 { get; set; }
         public ushort GroupMemberId { get; set; }
 
-        public List<UnknownStruct0> UnknownStruct0List { get; set; } = new();
+        public UnknownStruct0[] SomeStatList = new UnknownStruct0[5];
         public List<UnknownStruct1> UnknownStruct1List { get; set; } = new();
 
         public TargetPlayerIdentity MentoringTarget { get; set; }
@@ -85,7 +85,10 @@ namespace NexusForever.WorldServer.Network.Message.Model.Shared
             writer.Write(GroupMemberId);
 
             for (var i = 0; i < 5; ++i)
-                new UnknownStruct0().Write(writer);
+            {
+                SomeStatList[i] = new UnknownStruct0();
+                SomeStatList[i].Write(writer);
+            }
 
             if (MentoringTarget == null)
             {

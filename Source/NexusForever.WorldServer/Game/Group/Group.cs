@@ -16,7 +16,7 @@ namespace NexusForever.WorldServer.Game.Group
     public class Group : IUpdate, IBuildable<GroupInfo>
     {
         private readonly Dictionary<ulong, GroupInvite> invites = new Dictionary<ulong, GroupInvite>();
-        private readonly Dictionary<ulong, GroupMember> members = new Dictionary<ulong, GroupMember>();
+        public Dictionary<ulong, GroupMember> Members = new Dictionary<ulong, GroupMember>();
 
         /// <summary>
         /// Id for the current <see cref="Group"/>
@@ -55,7 +55,7 @@ namespace NexusForever.WorldServer.Game.Group
         public GroupMember CreateMember(Player player)
         {
             GroupMember member = new GroupMember(NextMemberId(), this, player);
-            members.Add(member.Id, member);
+            Members.Add(member.Id, member);
 
             player.GroupMember = member;
             return member;
@@ -68,11 +68,8 @@ namespace NexusForever.WorldServer.Game.Group
                 invite.ExpirationTime -= lastTick;
                 if (invite.ExpirationTime <= 0d)
                 {
-                    // Invite expired
-
-
                     // Delete the current invite
-                    RevokeInvite(invite);
+                    RevokeInvite(invite, true);
                 }
             }
         }
@@ -82,8 +79,8 @@ namespace NexusForever.WorldServer.Game.Group
         /// </summary>
         public ulong NextMemberId()
         {
-            if (members.Count > 0)
-                return members.Last().Key + 1UL;
+            if (Members.Count > 0)
+                return Members.Last().Key + 1UL;
             else
                 return 1;
         }
@@ -106,11 +103,11 @@ namespace NexusForever.WorldServer.Game.Group
         public List<NetworkGroupMember> BuildGroupMembers()
         {
             List<NetworkGroupMember> memberList = new();
-            foreach (var member in members.Values)
+            foreach (var member in Members.Values)
             {
-                NetworkGroupMember groupMember = member.BuildGroupMember();
+                NetworkGroupMember groupMember = member.Build();
                 groupMember.GroupMemberId = (ushort)member.Id;
-                memberList.Add(member.BuildGroupMember());
+                memberList.Add(member.Build());
             }
 
             return memberList;
@@ -124,9 +121,9 @@ namespace NexusForever.WorldServer.Game.Group
             List<GroupMemberInfo> memberList = new();
             uint groupIndex = 1;
 
-            foreach (var member in members.Values)
+            foreach (var member in Members.Values)
             {
-                NetworkGroupMember groupMember = member.BuildGroupMember();
+                NetworkGroupMember groupMember = member.Build();
                 groupMember.GroupMemberId = (ushort)member.Id;
 
                 GroupMemberInfo memberInfo = new GroupMemberInfo
@@ -166,7 +163,7 @@ namespace NexusForever.WorldServer.Game.Group
         /// </summary>
         public void BroadcastPacket(IWritable message)
         {
-            foreach (var member in members.Values)
+            foreach (var member in Members.Values)
                 member.Player.Session.EnqueueMessageEncrypted(message);
         }
 
