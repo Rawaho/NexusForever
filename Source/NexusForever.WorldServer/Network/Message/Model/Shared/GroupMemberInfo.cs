@@ -5,7 +5,7 @@ namespace NexusForever.WorldServer.Network.Message.Model.Shared
 {
     public class GroupMemberInfo : IWritable
     {
-        public TargetPlayerIdentity MemberIdentity { get; set; } = new();
+        public TargetPlayerIdentity MemberIdentity { get; set; } = new TargetPlayerIdentity();
         public uint Flags { get; set; }
         public GroupMember Member { get; set; }
         public uint GroupIndex { get; set; }

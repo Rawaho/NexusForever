@@ -7,8 +7,8 @@ namespace NexusForever.WorldServer.Network.Message.Model
     [Message(GameMessageOpcode.ServerGroupJoin)]
     public class ServerGroupJoin : IWritable
     {
-        public TargetPlayerIdentity JoinedPlayer { get; set; } = new();
-        public GroupInfo GroupInfo { get; set; } = new();
+        public TargetPlayerIdentity JoinedPlayer { get; set; } = new TargetPlayerIdentity();
+        public GroupInfo GroupInfo { get; set; } = new GroupInfo();
 
         public void Write(GamePacketWriter writer)
         {

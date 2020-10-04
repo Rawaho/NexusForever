@@ -108,7 +108,7 @@ namespace NexusForever.WorldServer.Game.Group
         /// </summary>
         public List<NetworkGroupMember> BuildGroupMembers()
         {
-            List<NetworkGroupMember> memberList = new();
+            List<NetworkGroupMember> memberList = new List<NetworkGroupMember>();
             foreach (var member in Members.Values)
             {
                 NetworkGroupMember groupMember = member.Build();
@@ -124,7 +124,7 @@ namespace NexusForever.WorldServer.Game.Group
         /// </summary>
         public List<GroupMemberInfo> BuildMemberInfo()
         {
-            List<GroupMemberInfo> memberList = new();
+            List<GroupMemberInfo> memberList = new List<GroupMemberInfo>();
             uint groupIndex = 1;
 
             foreach (var member in Members.Values)

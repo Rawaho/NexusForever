@@ -9,7 +9,7 @@ namespace NexusForever.WorldServer.Network.Message.Model.Shared
     {
         public ulong GroupId { get; set; }
         public GroupFlags Flags { get; set; }
-        public List<GroupMemberInfo> MemberInfos { get; set; } = new();
+        public List<GroupMemberInfo> MemberInfos { get; set; } = new List<GroupMemberInfo>();
         public uint MaxGroupSize { get; set; }
 
         public LootRule LootRule { get; set; }
@@ -17,7 +17,7 @@ namespace NexusForever.WorldServer.Network.Message.Model.Shared
         public LootThreshold LootThreshold { get; set; }
         public HarvestLootRule LootRuleHarvest { get; set; }
 
-        public TargetPlayerIdentity LeaderIdentity { get; set; } = new();
+        public TargetPlayerIdentity LeaderIdentity { get; set; } = new TargetPlayerIdentity();
         public ushort RealmId { get; set; }     //< Why again? Tf?
 
         public void Write(GamePacketWriter writer)

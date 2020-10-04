@@ -44,7 +44,7 @@ namespace NexusForever.WorldServer.Network.Message.Model.Shared
         public ushort GroupMemberId { get; set; }
 
         public UnknownStruct0[] SomeStatList = new UnknownStruct0[5];
-        public List<UnknownStruct1> UnknownStruct1List { get; set; } = new();
+        public List<UnknownStruct1> UnknownStruct1List { get; set; } = new List<UnknownStruct1>();
 
         public TargetPlayerIdentity MentoringTarget { get; set; }
 
