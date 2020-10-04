@@ -1,6 +1,8 @@
 ﻿using NexusForever.Shared.Network.Message;
 using NexusForever.WorldServer.Game.Entity;
 using NexusForever.WorldServer.Game.Group.Static;
+using NexusForever.WorldServer.Network.Message.Model;
+using NexusForever.WorldServer.Network.Message.Model.Shared;
 using NetworkGroupMember = NexusForever.WorldServer.Network.Message.Model.Shared.GroupMember;
 
 namespace NexusForever.WorldServer.Game.Group.Model
@@ -15,10 +17,10 @@ namespace NexusForever.WorldServer.Game.Group.Model
         private GroupMemberInfoFlags flags;
 
         public bool IsPartyLeader => Group.Leader?.Id == Id;
-        public bool CanKick => IsPartyLeader || (Flags & GroupMemberInfoFlags.CanKick) != 0;
-        public bool CanInvite => IsPartyLeader || (Flags & GroupMemberInfoFlags.CanInvite) != 0;
-        public bool CanMark => IsPartyLeader || (Flags & GroupMemberInfoFlags.CanMark) != 0;
-        public bool CanReadyCheck => IsPartyLeader || (Flags & GroupMemberInfoFlags.CanReadyCheck) != 0;
+        public bool CanKick => (Flags & GroupMemberInfoFlags.CanKick) != 0;
+        public bool CanInvite => (Flags & GroupMemberInfoFlags.CanInvite) != 0;
+        public bool CanMark => (Flags & GroupMemberInfoFlags.CanMark) != 0;
+        public bool CanReadyCheck => (Flags & GroupMemberInfoFlags.CanReadyCheck) != 0;
 
         public GroupMember(ulong id, Group group, Player player)
         {
@@ -110,5 +112,42 @@ namespace NexusForever.WorldServer.Game.Group.Model
         /// Build the <see cref="NetworkGroupMember"/>.
         /// </summary>
         public NetworkGroupMember Build() => Player.BuildGroupMember();
+
+        /// <summary>
+        /// Build <see cref="ServerEntityGroupAssociation"/>
+        /// </summary>
+        public ServerEntityGroupAssociation BuildGroupAssociation()
+        {
+            return new ServerEntityGroupAssociation
+            {
+                UnitId  = Player.Guid,
+                GroupId = Group.Id
+            };
+        }
+
+        /// <summary>
+        /// Build <see cref="ServerGroupMemberStatUpdate"/>
+        /// </summary>
+        public ServerGroupMemberStatUpdate BuildGroupStatUpdate()
+        {
+            return new ServerGroupMemberStatUpdate
+            {
+                GroupId             = Group.Id,
+                GroupMemberId       = (ushort)Id,
+                TargetPlayer        = new TargetPlayerIdentity
+                {
+                    CharacterId     = Player.CharacterId,
+                    RealmId         = WorldServer.RealmId
+                },
+                Level               = (byte)Player.Level,
+                EffectiveLevel      = (byte)Player.Level,
+                Health              = (ushort)Player.Health,
+                HealthMax           = (ushort)Player.Health,
+                Shield              = (ushort)Player.Shield,
+                ShieldMax           = (ushort)Player.Shield,
+                InterruptArmor      = (ushort)Player.InterruptArmor,
+                InterruptArmorMax   = (ushort)Player.InterruptArmor
+            };
+        }
     }
 }

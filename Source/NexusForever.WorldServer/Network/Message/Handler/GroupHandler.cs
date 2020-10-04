@@ -1,4 +1,5 @@
 ﻿using NexusForever.Shared.Network.Message;
+using NexusForever.WorldServer.Game.Entity;
 using NexusForever.WorldServer.Game.Group;
 using NexusForever.WorldServer.Game.Group.Static;
 using NexusForever.WorldServer.Network.Message.Model;
@@ -53,6 +54,12 @@ namespace NexusForever.WorldServer.Network.Message.Handler
             }
 
             Group group = GroupManager.Instance.GetGroupByLeader(session.Player) ?? GroupManager.Instance.CreateGroup(session.Player);
+            if (group.Members.Count > 5)
+            {
+                SendGroupResult(session, GroupResult.Full, group.Id, groupInvite.Name);
+                return;
+            }
+
             group.Invite(session.Player, targetSession.Player);
         }
 
@@ -93,10 +100,14 @@ namespace NexusForever.WorldServer.Network.Message.Handler
             if (response.Result == GroupInviteResult.Declined)
             {
                 SendGroupResult(leaderSession, GroupResult.Declined, response.GroupId, session.Player.Name);
+
+                joinedGroup.RevokeInvite(session.Player.GroupInvite);
+                session.Player.GroupInvite = null;
+
                 return;
             }
 
-            Game.Group.Model.GroupMember addedMember = joinedGroup.CreateMember(session.Player);
+            var addedMember = joinedGroup.CreateMember(session.Player);
             if (addedMember == null)
                 return;
 
@@ -112,14 +123,18 @@ namespace NexusForever.WorldServer.Network.Message.Handler
 
             // Broadcast the packet to the group
             joinedGroup.BroadcastPacket(groupJoinPacket);
+
+            leaderSession.EnqueueMessageEncrypted(addedMember.BuildGroupAssociation());
+            session.EnqueueMessageEncrypted(joinedGroup.Leader.BuildGroupAssociation());
+
             joinedGroup.RevokeInvite(session.Player.GroupInvite);
 
             // For now send GroupResult.Accepted
             SendGroupResult(leaderSession, GroupResult.Accepted, response.GroupId, session.Player.Name);
 
-            foreach (Game.Group.Model.GroupMember member in joinedGroup.Members.Values)
+            foreach (var member in joinedGroup.Members.Values)
             {
-
+                joinedGroup.BroadcastPacket(member.BuildGroupStatUpdate());
             }
         }
     }

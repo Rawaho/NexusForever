@@ -1,9 +1,6 @@
 ﻿using NexusForever.Shared.Network;
 using NexusForever.Shared.Network.Message;
 using NexusForever.WorldServer.Network.Message.Model.Shared;
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace NexusForever.WorldServer.Network.Message.Model
 {
@@ -17,7 +14,7 @@ namespace NexusForever.WorldServer.Network.Message.Model
         public byte EffectiveLevel { get; set; }
 
         public uint Unk1 { get; set; }
-        public ushort Unk2 { get; set; }
+        public ushort GroupMemberId { get; set; }
 
         public GroupMember.UnknownStruct0[] SomeStatList = new GroupMember.UnknownStruct0[5];
 
@@ -47,10 +44,13 @@ namespace NexusForever.WorldServer.Network.Message.Model
             writer.Write(EffectiveLevel, 7);
 
             writer.Write(Unk1, 17);
-            writer.Write(Unk2);
+            writer.Write(GroupMemberId);
 
             for (var i = 0; i < 5; ++i)
+            {
+                SomeStatList[i] = new GroupMember.UnknownStruct0();
                 SomeStatList[i].Write(writer);
+            }
 
             writer.Write(Health);
             writer.Write(HealthMax);

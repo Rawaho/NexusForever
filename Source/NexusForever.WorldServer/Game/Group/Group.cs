@@ -29,11 +29,17 @@ namespace NexusForever.WorldServer.Game.Group
         public GroupMember Leader { get; }
 
         /// <summary>
+        /// <see cref="GroupFlags"/> for <see cref="Group"/>
+        /// </summary>
+        public GroupFlags Flags { get; set; }
+
+        /// <summary>
         /// Creates an instance of <see cref="Group"/>
         /// </summary>
         public Group(ulong id, Player leader)
         {
             Id     = id;
+            Flags |= GroupFlags.OpenWorld;
             Leader = CreateMember(leader);
         }
 
@@ -128,14 +134,14 @@ namespace NexusForever.WorldServer.Game.Group
 
                 GroupMemberInfo memberInfo = new GroupMemberInfo
                 {
-                    Member = groupMember,
-                    GroupIndex = ++groupIndex,
-                    MemberIdentity = new TargetPlayerIdentity
+                    Member          = groupMember,
+                    GroupIndex      = groupIndex++,
+                    MemberIdentity  = new TargetPlayerIdentity
                     {
                         CharacterId = member.Player.CharacterId,
-                        RealmId = WorldServer.RealmId
+                        RealmId     = WorldServer.RealmId
                     },
-                    Flags = (uint)member.Flags
+                    Flags           = (uint)member.Flags
                 };
 
                 memberList.Add(memberInfo);
@@ -201,6 +207,7 @@ namespace NexusForever.WorldServer.Game.Group
             return new GroupInfo
             {
                 GroupId             = Id,
+                Flags               = Flags,
                 LeaderIdentity      = new TargetPlayerIdentity
                 {
                     CharacterId     = Leader.Player.CharacterId,
