@@ -87,21 +87,5 @@ namespace NexusForever.WorldServer.Network
             var packet = new ClientGamePacket(packedWorld.Data);
             HandlePacket(packet);
         }
-
-        /// <summary>
-        /// Get the <see cref="WorldSession"/> supplied from PlayerName.
-        /// </summary>
-        public async Task<WorldSession> GetSessionByName(string playerName)
-        {
-            var character = await DatabaseManager.Instance.CharacterDatabase.GetCharacterByName(playerName);
-            if (character == null)
-                return null;
-
-            var session = NetworkManager<WorldSession>.Instance.GetSession(s => s.Player?.CharacterId == character.Id);
-            if (session == null)
-                return null;
-
-            return session;
-        }
     }
 }
