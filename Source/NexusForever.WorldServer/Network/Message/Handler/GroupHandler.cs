@@ -1,4 +1,4 @@
-using NexusForever.Shared.Game.Events;
+﻿using NexusForever.Shared.Game.Events;
 using NexusForever.Shared.Network.Message;
 using NexusForever.WorldServer.Game.CharacterCache;
 using NexusForever.WorldServer.Game.Entity;
@@ -88,7 +88,6 @@ namespace NexusForever.WorldServer.Network.Message.Handler
             }
 
             WorldSession leaderSession = joinedGroup.Leader.Player.Session;
-            // If this happens something is REALLY wrong
             if (leaderSession == null)
                 return;
 
@@ -118,6 +117,19 @@ namespace NexusForever.WorldServer.Network.Message.Handler
             joinedGroup.AddMember(addedMember);
 
             SendGroupResult(leaderSession, GroupResult.Accepted, response.GroupId, session.Player.Name);
+        }
+
+        [MessageHandler(GameMessageOpcode.ClientGroupKick)]
+        public static void HandleGroupYeet(WorldSession session, ClientGroupKick kick)
+        {
+            Group group = GroupManager.Instance.GetGroupById(kick.GroupId);
+            if (group == null)
+            {
+                SendGroupResult(session, GroupResult.GroupNotFound, kick.GroupId, session.Player.Name);
+                return;
+            }
+
+            group.KickMember(kick.TargetedPlayer);
         }
     }
 }

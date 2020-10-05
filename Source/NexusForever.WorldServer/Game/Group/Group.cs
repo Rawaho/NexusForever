@@ -269,6 +269,40 @@ namespace NexusForever.WorldServer.Game.Group
         }
 
         /// <summary>
+        /// Kick a <see cref="GroupMember"/> from the <see cref="Group"/>
+        /// </summary>
+        public void KickMember(TargetPlayerIdentity target)
+        {
+            GroupMember kickedMember = FindMember(target);
+            if (kickedMember == null)
+                return;
+
+            if (kickedMember.IsPartyLeader)
+                return;
+
+            Members.Remove(kickedMember.Id);
+
+            kickedMember.Player.Session.EnqueueMessageEncrypted(null);
+            BroadcastPacket(null);
+        }
+
+        /// <summary>
+        /// Find a <see cref="GroupMember"/> with the provided <see cref="TargetPlayerIdentity"/>
+        /// </summary>
+        public GroupMember FindMember(TargetPlayerIdentity target)
+        {
+            foreach (GroupMember member in Members.Values)
+            {
+                if (member.Player.CharacterId != target.CharacterId)
+                    continue;
+
+                return member;
+            }
+
+            return null;
+        }
+
+        /// <summary>
         /// Build the <see cref="GroupInfo"/> structure from the current <see cref="Group"/>
         /// </summary>
         public GroupInfo Build()
