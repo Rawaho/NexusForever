@@ -5,6 +5,7 @@ using NexusForever.WorldServer.Game.Entity;
 using NexusForever.WorldServer.Game.Group.Model;
 using NexusForever.WorldServer.Game.Group.Static;
 using NexusForever.WorldServer.Network.Message.Handler;
+using NexusForever.WorldServer.Network.Message.Model;
 using NexusForever.WorldServer.Network.Message.Model.Shared;
 using System.Collections.Generic;
 using System.Linq;
@@ -34,13 +35,26 @@ namespace NexusForever.WorldServer.Game.Group
         public GroupFlags Flags { get; set; }
 
         /// <summary>
+        /// Max group size for <see cref="Group"/>
+        /// </summary>
+        public uint MaxGroupSize { get; set; }
+
+        private bool isNewGroup { get; set; }
+
+        /// <summary>
         /// Creates an instance of <see cref="Group"/>
         /// </summary>
         public Group(ulong id, Player leader)
         {
+            isNewGroup = true;
             Id     = id;
             Flags |= GroupFlags.OpenWorld;
             Leader = CreateMember(leader);
+
+            if ((Flags & GroupFlags.Raid) != 0)
+                MaxGroupSize = 20;
+            else
+                MaxGroupSize = 5;
         }
 
         /// <summary>
@@ -122,30 +136,13 @@ namespace NexusForever.WorldServer.Game.Group
         /// <summary>
         /// Builds all <see cref="GroupMember"/> into <see cref="GroupMemberInfo"/>
         /// </summary>
-        public List<GroupMemberInfo> BuildMemberInfo()
+        public List<GroupMemberInfo> BuildMembersInfo()
         {
             List<GroupMemberInfo> memberList = new List<GroupMemberInfo>();
             uint groupIndex = 1;
 
             foreach (var member in Members.Values)
-            {
-                NetworkGroupMember groupMember = member.Build();
-                groupMember.GroupMemberId = (ushort)member.Id;
-
-                GroupMemberInfo memberInfo = new GroupMemberInfo
-                {
-                    Member          = groupMember,
-                    GroupIndex      = groupIndex++,
-                    MemberIdentity  = new TargetPlayerIdentity
-                    {
-                        CharacterId = member.Player.CharacterId,
-                        RealmId     = WorldServer.RealmId
-                    },
-                    Flags           = (uint)member.Flags
-                };
-
-                memberList.Add(memberInfo);
-            }
+                memberList.Add(member.BuildMemberInfo(groupIndex++));
 
             return memberList;
         }
@@ -200,6 +197,78 @@ namespace NexusForever.WorldServer.Game.Group
         }
 
         /// <summary>
+        /// Check if a <see cref="GroupMember"/> can join the <see cref="Group"/>
+        /// </summary>
+        public bool CanJoinGroup(out GroupResult result)
+        {
+            // Member count is over the max group member count.
+            if (Members.Count >= MaxGroupSize)
+            {
+                result = GroupResult.Full;
+                return false;
+            }
+
+            // Join requests are closed.
+            if ((Flags & GroupFlags.JoinRequestClosed) != 0)
+            {
+                result = GroupResult.NotAcceptingRequests;
+                return false;
+            }
+
+            result = GroupResult.Sent;
+            return true;
+        }
+
+        /// <summary>
+        /// Add a new <see cref="GroupMember"/> to the <see cref="Group"/>
+        /// </summary>
+        public void AddMember(GroupMember addedMember)
+        {
+            if (isNewGroup)
+            {
+                isNewGroup = false;
+
+                foreach (var member in Members.Values)
+                {
+                    ServerGroupJoin groupJoinPacket = new ServerGroupJoin
+                    {
+                        TargetPlayer        = new TargetPlayerIdentity
+                        {
+                            CharacterId     = member.Player.CharacterId,
+                            RealmId         = WorldServer.RealmId
+                        },
+                        GroupInfo           = Build()
+                    };
+
+                    member.Player.Session.EnqueueMessageEncrypted(groupJoinPacket);
+                    // BroadcastPacket(member.BuildGroupStatUpdate());
+                }
+            }
+            else
+            {
+                uint groupIndex = 0u;
+                foreach (var _ in Members.Values)
+                    groupIndex++;
+
+                addedMember.Player.Session.EnqueueMessageEncrypted(new ServerGroupJoin
+                {
+                    TargetPlayer        = new TargetPlayerIdentity
+                    {
+                        CharacterId     = addedMember.Player.CharacterId,
+                        RealmId         = WorldServer.RealmId
+                    },
+                    GroupInfo           = Build()
+                });
+
+                BroadcastPacket(new ServerGroupMemberAdd
+                {
+                    GroupId = Id,
+                    AddedMemberInfo = addedMember.BuildMemberInfo(groupIndex)
+                });
+            }
+        }
+
+        /// <summary>
         /// Build the <see cref="GroupInfo"/> structure from the current <see cref="Group"/>
         /// </summary>
         public GroupInfo Build()
@@ -213,12 +282,12 @@ namespace NexusForever.WorldServer.Game.Group
                     CharacterId     = Leader.Player.CharacterId,
                     RealmId         = WorldServer.RealmId
                 },
-                LootRule            = LootRule.FreeForAll,
+                LootRule            = LootRule.NeedBeforeGreed,
+                LootRuleThreshold   = LootRule.RoundRobin,
                 LootRuleHarvest     = HarvestLootRule.FirstTagger,
-                LootRuleThreshold   = LootThreshold.Artifact,
-                LootThreshold       = LootThreshold.Artifact,
-                MaxGroupSize        = 5,   //< Hardcoded for now
-                MemberInfos         = BuildMemberInfo(),
+                LootThreshold       = LootThreshold.Good,
+                MaxGroupSize        = MaxGroupSize,
+                MemberInfos         = BuildMembersInfo(),
                 RealmId             = WorldServer.RealmId,
             };
         }

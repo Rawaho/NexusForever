@@ -20,7 +20,7 @@ namespace NexusForever.WorldServer.Game.Group.Static
         CanMark             = 1 << 13,
         HasSetReady         = 1 << 14,
 
-        GroupMemberFlags    = 0,
+        GroupMemberFlags    = CanMark,
         GroupAdminFlags     = CanInvite | CanKick | CanMark,
         GroupAssistantFlags = RaidAssistant | GroupAdminFlags,
 

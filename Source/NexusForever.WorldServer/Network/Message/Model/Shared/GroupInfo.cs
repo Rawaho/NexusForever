@@ -13,7 +13,7 @@ namespace NexusForever.WorldServer.Network.Message.Model.Shared
         public uint MaxGroupSize { get; set; }
 
         public LootRule LootRule { get; set; }
-        public LootThreshold LootRuleThreshold { get; set; }
+        public LootRule LootRuleThreshold { get; set; }
         public LootThreshold LootThreshold { get; set; }
         public HarvestLootRule LootRuleHarvest { get; set; }
 

@@ -54,9 +54,9 @@ namespace NexusForever.WorldServer.Network.Message.Handler
             }
 
             Group group = GroupManager.Instance.GetGroupByLeader(session.Player) ?? GroupManager.Instance.CreateGroup(session.Player);
-            if (group.Members.Count > 5)
+            if (!group.CanJoinGroup(out GroupResult result))
             {
-                SendGroupResult(session, GroupResult.Full, group.Id, groupInvite.Name);
+                SendGroupResult(session, result, group.Id, groupInvite.Name);
                 return;
             }
 
@@ -107,35 +107,21 @@ namespace NexusForever.WorldServer.Network.Message.Handler
                 return;
             }
 
+            // Check if the Player can join the group
+            if (!joinedGroup.CanJoinGroup(out GroupResult result))
+            {
+                SendGroupResult(session, result, joinedGroup.Id, session.Player.Name);
+                return;
+            }
+
             var addedMember = joinedGroup.CreateMember(session.Player);
             if (addedMember == null)
                 return;
 
-            ServerGroupJoin groupJoinPacket = new ServerGroupJoin
-            {
-                JoinedPlayer = new TargetPlayerIdentity
-                {
-                    CharacterId = session.Player.CharacterId,
-                    RealmId = WorldServer.RealmId
-                },
-                GroupInfo = joinedGroup.Build()
-            };
-
-            // Broadcast the packet to the group
-            joinedGroup.BroadcastPacket(groupJoinPacket);
-
-            leaderSession.EnqueueMessageEncrypted(addedMember.BuildGroupAssociation());
-            session.EnqueueMessageEncrypted(joinedGroup.Leader.BuildGroupAssociation());
-
             joinedGroup.RevokeInvite(session.Player.GroupInvite);
+            joinedGroup.AddMember(addedMember);
 
-            // For now send GroupResult.Accepted
             SendGroupResult(leaderSession, GroupResult.Accepted, response.GroupId, session.Player.Name);
-
-            foreach (var member in joinedGroup.Members.Values)
-            {
-                joinedGroup.BroadcastPacket(member.BuildGroupStatUpdate());
-            }
         }
     }
 }

@@ -114,6 +114,24 @@ namespace NexusForever.WorldServer.Game.Group.Model
         public NetworkGroupMember Build() => Player.BuildGroupMember();
 
         /// <summary>
+        /// Build the <see cref="GroupMemberInfo"/> model.
+        /// </summary>
+        public GroupMemberInfo BuildMemberInfo(uint index)
+        {
+            return new GroupMemberInfo
+            {
+                MemberIdentity  = new TargetPlayerIdentity
+                {
+                    CharacterId = Player.CharacterId,
+                    RealmId     = WorldServer.RealmId
+                },
+                Flags           = Flags,
+                GroupIndex      = index,
+                Member          = Build()
+            };
+        }
+
+        /// <summary>
         /// Build <see cref="ServerEntityGroupAssociation"/>
         /// </summary>
         public ServerEntityGroupAssociation BuildGroupAssociation()
