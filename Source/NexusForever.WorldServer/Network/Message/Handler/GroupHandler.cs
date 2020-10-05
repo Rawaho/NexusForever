@@ -1,4 +1,5 @@
-﻿using NexusForever.Shared.Network.Message;
+using NexusForever.Shared.Game.Events;
+using NexusForever.Shared.Network.Message;
 using NexusForever.WorldServer.Game.Entity;
 using NexusForever.WorldServer.Game.Group;
 using NexusForever.WorldServer.Game.Group.Static;
@@ -25,60 +26,66 @@ namespace NexusForever.WorldServer.Network.Message.Handler
         [MessageHandler(GameMessageOpcode.ClientGroupInvite)]
         public static void HandleGroupInvite(WorldSession session, ClientGroupInvite groupInvite)
         {
-            WorldSession targetSession = session.GetSessionByName(groupInvite.Name);
-            if (targetSession == null)
+            session.EnqueueEvent(new TaskGenericEvent<WorldSession>(session.GetSessionByName(groupInvite.Name),
+                targetSession =>
             {
-                SendGroupResult(session, GroupResult.PlayerNotFound, targetPlayerName: groupInvite.Name);
-                return;
-            }
+                if (targetSession == null)
+                {
+                    SendGroupResult(session, GroupResult.PlayerNotFound, targetPlayerName: groupInvite.Name);
+                    return;
+                }
 
-            // Check if inviter faction is same as invited faction.
-            if (targetSession.Player.Faction1 != session.Player.Faction1)
-            {
-                SendGroupResult(session, GroupResult.WrongFaction, targetPlayerName: groupInvite.Name);
-                return;
-            }
+                // Check if inviter faction is same as invited faction.
+                if (targetSession.Player.Faction1 != session.Player.Faction1)
+                {
+                    SendGroupResult(session, GroupResult.WrongFaction, targetPlayerName: groupInvite.Name);
+                    return;
+                }
 
-            // Player is already being invited by another group/player
-            if (targetSession.Player.GroupInvite != null)
-            {
-                SendGroupResult(session, GroupResult.Pending, targetPlayerName: groupInvite.Name);
-                return;
-            }
+                // Player is already being invited by another group/player
+                if (targetSession.Player.GroupInvite != null)
+                {
+                    SendGroupResult(session, GroupResult.Pending, targetPlayerName: groupInvite.Name);
+                    return;
+                }
 
-            // Check if the inviter is not inviting himself (pleb)
-            if (targetSession == session)
-            {
-                SendGroupResult(session, GroupResult.NotInvitingSelf, targetPlayerName: groupInvite.Name);
-                return;
-            }
+                // Check if the inviter is not inviting himself (pleb)
+                if (targetSession == session)
+                {
+                    SendGroupResult(session, GroupResult.NotInvitingSelf, targetPlayerName: groupInvite.Name);
+                    return;
+                }
 
-            Group group = GroupManager.Instance.GetGroupByLeader(session.Player) ?? GroupManager.Instance.CreateGroup(session.Player);
-            if (!group.CanJoinGroup(out GroupResult result))
-            {
-                SendGroupResult(session, result, group.Id, groupInvite.Name);
-                return;
-            }
+                Group group = GroupManager.Instance.GetGroupByLeader(session.Player) ?? GroupManager.Instance.CreateGroup(session.Player);
+                if (!group.CanJoinGroup(out GroupResult result))
+                {
+                    SendGroupResult(session, result, group.Id, groupInvite.Name);
+                    return;
+                }
 
-            group.Invite(session.Player, targetSession.Player);
+                group.Invite(session.Player, targetSession.Player);
+            }));
         }
 
         [MessageHandler(GameMessageOpcode.ClientGroupRequestJoin)]
         public static void HandleJoinGroupRequest(WorldSession session, ClientGroupRequestJoin joinRequest)
         {
-            var targetSession = session.GetSessionByName(joinRequest.Name);
-            if (targetSession == null)
+            session.EnqueueEvent(new TaskGenericEvent<WorldSession>(session.GetSessionByName(joinRequest.Name),
+                targetSession =>
             {
-                SendGroupResult(session, GroupResult.PlayerNotFound, targetPlayerName: joinRequest.Name);
-                return;
-            }
+                if (targetSession == null)
+                {
+                    SendGroupResult(session, GroupResult.PlayerNotFound, targetPlayerName: joinRequest.Name);
+                    return;
+                }
 
-            Group group = GroupManager.Instance.GetGroupByLeader(targetSession.Player);
-            if (group == null)
-            {
-                SendGroupResult(session, GroupResult.GroupNotFound, targetPlayerName: joinRequest.Name);
-                return;
-            }
+                Group group = GroupManager.Instance.GetGroupByLeader(targetSession.Player);
+                if (group == null)
+                {
+                    SendGroupResult(session, GroupResult.GroupNotFound, targetPlayerName: joinRequest.Name);
+                    return;
+                }
+            }));
         }
 
         [MessageHandler(GameMessageOpcode.ClientGroupInviteResponse)]

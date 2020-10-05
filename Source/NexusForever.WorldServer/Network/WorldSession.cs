@@ -14,6 +14,7 @@ using NexusForever.WorldServer.Game.RBAC;
 using NexusForever.WorldServer.Game.Account;
 using NexusForever.WorldServer.Game.Entity;
 using NexusForever.WorldServer.Network.Message.Model;
+using System.Threading.Tasks;
 
 namespace NexusForever.WorldServer.Network
 {
@@ -90,9 +91,9 @@ namespace NexusForever.WorldServer.Network
         /// <summary>
         /// Get the <see cref="WorldSession"/> supplied from PlayerName.
         /// </summary>
-        public WorldSession GetSessionByName(string playerName)
+        public async Task<WorldSession> GetSessionByName(string playerName)
         {
-            var character = DatabaseManager.Instance.CharacterDatabase.GetCharacterByName(playerName).Result;
+            var character = await DatabaseManager.Instance.CharacterDatabase.GetCharacterByName(playerName);
             if (character == null)
                 return null;
 
