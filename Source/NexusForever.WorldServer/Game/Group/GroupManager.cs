@@ -31,6 +31,19 @@ namespace NexusForever.WorldServer.Game.Group
         }
 
         /// <summary>
+        /// Removes the Group from the Session.
+        /// </summary>
+        /// <param name="group">The group to remove.</param>
+        public void RemoveGroup(Group group)
+        {
+            if (!groups.ContainsKey(group.Id))
+                return;
+
+            groups.Remove(group.Id);
+            groupOwner.Remove(group.Leader.Player.CharacterId);
+        }
+
+        /// <summary>
         /// Get the current <see cref="Group"/> from the supplied <see cref="Player"/>
         /// </summary>
         public Group GetGroupByLeader(Player player)

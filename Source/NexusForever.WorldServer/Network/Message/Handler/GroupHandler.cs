@@ -6,6 +6,7 @@ using NexusForever.WorldServer.Game.Group;
 using NexusForever.WorldServer.Game.Group.Static;
 using NexusForever.WorldServer.Network.Message.Model;
 using NexusForever.WorldServer.Network.Message.Model.Shared;
+using System.Diagnostics;
 
 namespace NexusForever.WorldServer.Network.Message.Handler
 {
@@ -120,7 +121,7 @@ namespace NexusForever.WorldServer.Network.Message.Handler
         }
 
         [MessageHandler(GameMessageOpcode.ClientGroupKick)]
-        public static void HandleGroupYeet(WorldSession session, ClientGroupKick kick)
+        public static void HandleGroupKick(WorldSession session, ClientGroupKick kick)
         {
             Group group = GroupManager.Instance.GetGroupById(kick.GroupId);
             if (group == null)
@@ -129,7 +130,33 @@ namespace NexusForever.WorldServer.Network.Message.Handler
                 return;
             }
 
-            group.KickMember(kick.TargetedPlayer);
+            // I never want to leave a group with only 1 member; So as with the Leave if there would be 1 member left after this operation
+            // Just .Disband() the group.
+            if (group.Members.Count == 2)
+                group.Disband();
+            else
+                group.KickMember(kick.TargetedPlayer);            
+        }
+
+        [MessageHandler(GameMessageOpcode.ClientGroupLeave)]
+        public static void HandleGroupLeave(WorldSession session, ClientGroupLeave leave)
+        {
+            Group group = GroupManager.Instance.GetGroupById(leave.GroupId);
+            if (group == null)
+            {
+                SendGroupResult(session, GroupResult.GroupNotFound, leave.GroupId, session.Player.Name);
+                return;
+            }
+
+            // I never want to leave a group with only 1 member; So as with the Kick if there would be 1 member left after this operation
+            // Just .Disband() the group.
+            if (leave.ShouldDisband || group.Members.Count == 2)
+            {
+                group.Disband();
+                return;
+            }
+
+            group.RemoveMember(session.Player.GroupMember); 
         }
     }
 }

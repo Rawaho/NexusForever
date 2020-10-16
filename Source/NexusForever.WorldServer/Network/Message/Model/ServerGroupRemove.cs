@@ -8,6 +8,10 @@ using System.Text;
 
 namespace NexusForever.WorldServer.Network.Message.Model
 {
+    /// <summary>
+    /// Tells a player they are no longer part of the group.
+    /// Invokes the 'Group_Leave' event in Apollo. Which is invoked only for the current player.
+    /// </summary>
     [Message(GameMessageOpcode.ServerGroupRemove)]
     public class ServerGroupRemove : IWritable
     {
@@ -18,7 +22,11 @@ namespace NexusForever.WorldServer.Network.Message.Model
 
         public void Write(GamePacketWriter writer)
         {
-            
+            writer.Write(GroupId);
+            writer.Write(Unk0);
+
+            TargetPlayer.Write(writer);
+            writer.Write(Reason, 4u);
         }
     }
 }

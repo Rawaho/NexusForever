@@ -269,10 +269,15 @@ namespace NexusForever.WorldServer.Game.Group
         }
 
         /// <summary>
-        /// Kick a <see cref="GroupMember"/> from the <see cref="Group"/>
+        /// Kick a <see cref="GroupMember"/> from the <see cref="Group"/>.
         /// </summary>
         public void KickMember(TargetPlayerIdentity target)
         {
+            if (this.Members.Count == 2) {
+                Disband();
+                return;
+            }
+
             GroupMember kickedMember = FindMember(target);
             if (kickedMember == null)
                 return;
@@ -280,10 +285,69 @@ namespace NexusForever.WorldServer.Game.Group
             if (kickedMember.IsPartyLeader)
                 return;
 
-            Members.Remove(kickedMember.Id);
+            if (!Members.Remove(kickedMember.Id))
+                return;
 
-            kickedMember.Player.Session.EnqueueMessageEncrypted(null);
-            BroadcastPacket(null);
+            // Tell the player they are no longer in a group.
+            kickedMember.Player.GroupMember = null;
+            kickedMember.Player.Session.EnqueueMessageEncrypted(new ServerGroupLeave
+            {
+                GroupId = Id,
+                Reason = RemoveReason.Kicked
+            });
+             
+            // Tell Other memebers of the group this player has been kicked.
+            BroadcastPacket(new ServerGroupRemove
+            {
+                GroupId = Id,
+                Reason = RemoveReason.Kicked,
+                TargetPlayer = target
+            }); 
+        }
+
+        /// <summary>
+        /// Removes the <see cref="GroupMember"/> from the group.
+        /// </summary>
+        /// <param name="memberToRemove"></param>
+        public void RemoveMember(GroupMember memberToRemove)
+        {
+            if (!this.Members.ContainsKey(memberToRemove.Id))
+                return;
+
+            memberToRemove.Player.GroupMember = null;
+            Members.Remove(memberToRemove.Id);
+
+            memberToRemove.Player.Session.EnqueueMessageEncrypted(new ServerGroupLeave
+            {
+                GroupId = Id,
+                Reason = RemoveReason.Left
+            });
+            BroadcastPacket(new ServerGroupRemove
+            {
+                GroupId = Id,
+                Reason = RemoveReason.Left,
+                TargetPlayer = new TargetPlayerIdentity()
+                {
+                    CharacterId = memberToRemove.Player.CharacterId,
+                    RealmId = WorldServer.RealmId
+                }
+            });
+        }
+
+        /// <summary>
+        /// Disbands and removes the group from the <see cref="GroupManager"/>
+        /// </summary>
+        public void Disband()
+        {
+            foreach (GroupMember member in Members.Values)
+                member.Player.GroupMember = null;
+
+            BroadcastPacket(new ServerGroupLeave
+            {
+                 GroupId = Id,
+                 Reason = RemoveReason.Disband
+            });
+            GroupManager.Instance.RemoveGroup(this);
         }
 
         /// <summary>
