@@ -51,10 +51,7 @@ namespace NexusForever.WorldServer.Game.Group
             Flags |= GroupFlags.OpenWorld;
             Leader = CreateMember(leader);
 
-            if ((Flags & GroupFlags.Raid) != 0)
-                MaxGroupSize = 20;
-            else
-                MaxGroupSize = 5;
+            this.SetGroupSize();
         }
 
         /// <summary>
@@ -351,6 +348,23 @@ namespace NexusForever.WorldServer.Game.Group
         }
 
         /// <summary>
+        /// Sets the <see cref="GroupFlags"/> on the group and broadcasts the changes to all members.
+        /// </summary>
+        /// <param name="newFlags"></param>
+        public void SetGroupFlags(GroupFlags newFlags)
+        {
+            Flags = newFlags;
+            SetGroupSize();
+
+            // Do we Need to Broadcast A GameMessageOpcode.ServerGroupMaxSizeChange?
+            BroadcastPacket(new ServerGroupFlagsChanged
+            {
+                GroupId = Id,
+                Flags   = Flags,
+            });
+        }
+         
+        /// <summary>
         /// Find a <see cref="GroupMember"/> with the provided <see cref="TargetPlayerIdentity"/>
         /// </summary>
         public GroupMember FindMember(TargetPlayerIdentity target)
@@ -364,6 +378,14 @@ namespace NexusForever.WorldServer.Game.Group
             }
 
             return null;
+        }
+
+        private void SetGroupSize()
+        {
+            if ((Flags & GroupFlags.Raid) != 0)
+                MaxGroupSize = 20;
+            else
+                MaxGroupSize = 5;
         }
 
         /// <summary>

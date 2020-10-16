@@ -158,5 +158,32 @@ namespace NexusForever.WorldServer.Network.Message.Handler
 
             group.RemoveMember(session.Player.GroupMember); 
         }
+         
+        [MessageHandler(GameMessageOpcode.ClientGroupMarkUnit)]
+        public static void HandleGroupMarkUnit(WorldSession session, ClientGroupMark clientMark)
+        {
+            ulong groupID = session.Player.GroupMember.Group.Id; 
+            Group group = GroupManager.Instance.GetGroupById(groupID);
+            if (group == null)
+            {
+                SendGroupResult(session, GroupResult.GroupNotFound, groupID, session.Player.Name);
+                return;
+            }
+
+            // UnitID could be either a Group Member, or a Mob.
+        }
+
+        [MessageHandler(GameMessageOpcode.ClientGroupFlagsChanged)]
+        public static void HandleGroupFlagsChanged(WorldSession session, ClientGroupFlagsChanged clientGroupFlagsChanged)
+        {
+            Group group = GroupManager.Instance.GetGroupById(clientGroupFlagsChanged.GroupId);
+            if (group == null)
+            {
+                SendGroupResult(session, GroupResult.GroupNotFound, clientGroupFlagsChanged.GroupId, session.Player.Name);
+                return;
+            }
+
+            group.SetGroupFlags(clientGroupFlagsChanged.NewFlags);
+        }
     }
 }
