@@ -1,4 +1,5 @@
 ﻿using NexusForever.Shared.Game.Events;
+using NexusForever.Shared.Network;
 using NexusForever.Shared.Network.Message;
 using NexusForever.WorldServer.Game.CharacterCache;
 using NexusForever.WorldServer.Game.Entity;
@@ -7,6 +8,7 @@ using NexusForever.WorldServer.Game.Group.Static;
 using NexusForever.WorldServer.Network.Message.Model;
 using NexusForever.WorldServer.Network.Message.Model.Shared;
 using System.Diagnostics;
+using System.Net.NetworkInformation;
 
 namespace NexusForever.WorldServer.Network.Message.Handler
 {
@@ -23,6 +25,18 @@ namespace NexusForever.WorldServer.Network.Message.Handler
                 Name = targetPlayerName,
                 Result = result
             });
+        }
+
+        /// <summary>
+        /// Asserts that the GroupId recieved from the client is a <see cref="Group"/> the Player is a member of.
+        /// </summary> 
+        public static void AssertGroupId(WorldSession session, ulong recievedGroupId)
+        {
+            // This will need updating - we may need to track the fact the player can belong to two groups.
+            //  a "Current" and a "previous"
+            ulong sessionGroupId = session.Player.GroupMember.Group.Id;
+            if (sessionGroupId != recievedGroupId)
+                throw new InvalidPacketValueException();
         }
 
         [MessageHandler(GameMessageOpcode.ClientGroupInvite)]
@@ -123,6 +137,8 @@ namespace NexusForever.WorldServer.Network.Message.Handler
         [MessageHandler(GameMessageOpcode.ClientGroupKick)]
         public static void HandleGroupKick(WorldSession session, ClientGroupKick kick)
         {
+            AssertGroupId(session, kick.GroupId);
+
             Group group = GroupManager.Instance.GetGroupById(kick.GroupId);
             if (group == null)
             {
@@ -141,6 +157,8 @@ namespace NexusForever.WorldServer.Network.Message.Handler
         [MessageHandler(GameMessageOpcode.ClientGroupLeave)]
         public static void HandleGroupLeave(WorldSession session, ClientGroupLeave leave)
         {
+            AssertGroupId(session, leave.GroupId);
+
             Group group = GroupManager.Instance.GetGroupById(leave.GroupId);
             if (group == null)
             {
@@ -161,12 +179,12 @@ namespace NexusForever.WorldServer.Network.Message.Handler
          
         [MessageHandler(GameMessageOpcode.ClientGroupMarkUnit)]
         public static void HandleGroupMarkUnit(WorldSession session, ClientGroupMark clientMark)
-        {
-            ulong groupID = session.Player.GroupMember.Group.Id; 
-            Group group = GroupManager.Instance.GetGroupById(groupID);
+        { 
+            ulong groupId = session.Player.GroupMember.Group.Id;
+            Group group = GroupManager.Instance.GetGroupById(groupId);
             if (group == null)
             {
-                SendGroupResult(session, GroupResult.GroupNotFound, groupID, session.Player.Name);
+                SendGroupResult(session, GroupResult.GroupNotFound, groupId, session.Player.Name);
                 return;
             }
 
@@ -176,6 +194,8 @@ namespace NexusForever.WorldServer.Network.Message.Handler
         [MessageHandler(GameMessageOpcode.ClientGroupFlagsChanged)]
         public static void HandleGroupFlagsChanged(WorldSession session, ClientGroupFlagsChanged clientGroupFlagsChanged)
         {
+            AssertGroupId(session, clientGroupFlagsChanged.GroupId);
+            
             Group group = GroupManager.Instance.GetGroupById(clientGroupFlagsChanged.GroupId);
             if (group == null)
             {
