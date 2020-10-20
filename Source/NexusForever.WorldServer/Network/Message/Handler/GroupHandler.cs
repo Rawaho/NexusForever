@@ -1,4 +1,4 @@
-using NexusForever.Shared.Game.Events;
+﻿using NexusForever.Shared.Game.Events;
 using NexusForever.Shared.Network;
 using NexusForever.Shared.Network.Message;
 using NexusForever.WorldServer.Game.CharacterCache;
@@ -65,7 +65,10 @@ namespace NexusForever.WorldServer.Network.Message.Handler
         {
             ICharacter character = CharacterManager.Instance.GetCharacterInfo(groupInvite.Name);
             if (!(character is Player targetedPlayer))
+            {
+                SendGroupResult(session, GroupResult.PlayerNotFound, targetPlayerName: groupInvite.Name);
                 return;
+            }
 
             // Check if inviter faction is same as invited faction.
             if (targetedPlayer.Faction1 != session.Player.Faction1)
