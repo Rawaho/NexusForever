@@ -249,7 +249,8 @@ namespace NexusForever.WorldServer.Network.Message.Handler
             else {
                 AssertGroupLeader(session);
             }
-            group.UpdateMemberRole(clientGroupSetRole.TargetedPlayer, clientGroupSetRole.ChangedFlag, clientGroupSetRole.CurrentFlags.HasFlag(clientGroupSetRole.ChangedFlag));
+
+            group.UpdateMemberRole(session.Player.GroupMember, clientGroupSetRole.TargetedPlayer, clientGroupSetRole.ChangedFlag, clientGroupSetRole.CurrentFlags.HasFlag(clientGroupSetRole.ChangedFlag));
         }
     }
 }

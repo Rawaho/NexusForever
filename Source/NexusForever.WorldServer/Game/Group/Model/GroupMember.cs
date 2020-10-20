@@ -55,12 +55,16 @@ namespace NexusForever.WorldServer.Game.Group.Model
             if (IsPartyLeader)
                 return true;
 
+            // If we are role locked and we are not the leader, we cannot update the flags.
+            if (flags.HasFlag(GroupMemberInfoFlags.RoleLocked))
+                return false;
+
             if ((flags & GroupMemberInfoFlags.RaidAssistant) != 0)
                 return true;
 
             if (other.Id != Id)
                 return false;
-
+             
             GroupMemberInfoFlags allowedFlags = GroupMemberInfoFlags.RoleFlags
                              | GroupMemberInfoFlags.HasSetReady
                              | GroupMemberInfoFlags.Ready;

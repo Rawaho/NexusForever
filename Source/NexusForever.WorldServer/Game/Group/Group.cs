@@ -385,15 +385,19 @@ namespace NexusForever.WorldServer.Game.Group
         /// <summary>
         /// Updates the Targeted Player Role.
         /// </summary>
+        /// <param name="updater">The <see cref="GroupMember"/> attempting to update the Role of the target.</param>
         /// <param name="target">The Player whose <see cref="GroupMemberInfo"/> should be updated.</param>
         /// <param name="changedFlag">The flag to change</param>
         /// <param name="addPermission">If true, adds the permission to the <see cref="GroupMember"/> otherwise revokes it.</param>
-        public void UpdateMemberRole(TargetPlayerIdentity target, GroupMemberInfoFlags changedFlag, bool addPermission)
+        public void UpdateMemberRole(GroupMember updater, TargetPlayerIdentity target, GroupMemberInfoFlags changedFlag, bool addPermission)
         {
             GroupMember member = FindMember(target);
             if (member == null)
                 return;
-    
+
+            if (!updater.CanUpdateFlags(changedFlag, member))
+                return;
+     
             uint memberIndex = 0;
             foreach (GroupMember groupMember in Members.Values) {
                 if (member.Player.CharacterId == target.CharacterId)
