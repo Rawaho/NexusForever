@@ -8,7 +8,7 @@ using NexusForever.WorldServer.Network.Message.Handler;
 using NexusForever.WorldServer.Network.Message.Model;
 using NexusForever.WorldServer.Network.Message.Model.Shared;
 using System.Collections.Generic;
-using System.Linq;
+using System.Linq; 
 using GroupMember = NexusForever.WorldServer.Game.Group.Model.GroupMember;
 using NetworkGroupMember = NexusForever.WorldServer.Network.Message.Model.Shared.GroupMember;
 
@@ -38,6 +38,11 @@ namespace NexusForever.WorldServer.Game.Group
         /// Max group size for <see cref="Group"/>
         /// </summary>
         public uint MaxGroupSize { get; set; }
+
+        /// <summary>
+        /// If this group is a raid.
+        /// </summary>
+        public bool IsRaid { get => Flags.HasFlag(GroupFlags.Raid); }
 
         private bool isNewGroup { get; set; }
 
@@ -264,7 +269,7 @@ namespace NexusForever.WorldServer.Game.Group
                 });
             }
         }
-
+         
         /// <summary>
         /// Kick a <see cref="GroupMember"/> from the <see cref="Group"/>.
         /// </summary>
@@ -353,17 +358,61 @@ namespace NexusForever.WorldServer.Game.Group
         /// <param name="newFlags"></param>
         public void SetGroupFlags(GroupFlags newFlags)
         {
-            Flags = newFlags;
-            SetGroupSize();
+            bool shouldConvertToRaid = false;
+            if (!IsRaid && newFlags.HasFlag(GroupFlags.Raid))
+                shouldConvertToRaid = true;
+             
+            if (shouldConvertToRaid)
+                ConvertToRaid(); 
 
-            // Do we Need to Broadcast A GameMessageOpcode.ServerGroupMaxSizeChange?
+            Flags = newFlags;
             BroadcastPacket(new ServerGroupFlagsChanged
             {
                 GroupId = Id,
-                Flags   = Flags,
+                Flags = Flags,
             });
         }
-         
+
+        public void ConvertToRaid()
+        {            
+            SetGroupSize();
+            //BroadcastPacket(new ServerGroupSizeChange
+            //{
+            //
+            //});
+        }
+
+        /// <summary>
+        /// Updates the Targeted Player Role.
+        /// </summary>
+        /// <param name="target">The Player whose <see cref="GroupMemberInfo"/> should be updated.</param>
+        /// <param name="changedFlag">The flag to change</param>
+        /// <param name="addPermission">If true, adds the permission to the <see cref="GroupMember"/> otherwise revokes it.</param>
+        public void UpdateMemberRole(TargetPlayerIdentity target, GroupMemberInfoFlags changedFlag, bool addPermission)
+        {
+            GroupMember member = FindMember(target);
+            if (member == null)
+                return;
+    
+            uint memberIndex = 0;
+            foreach (GroupMember groupMember in Members.Values) {
+                if (member.Player.CharacterId == target.CharacterId)
+                    break;
+
+                memberIndex++;
+            }
+              
+            member.SetFlags(changedFlag, addPermission); 
+            BroadcastPacket(new ServerGroupMemberFlagsChanged
+            {
+                GroupId = Id,
+                ChangedFlags = member.Flags,
+                IsFromPromotion = false,
+                MemberIndex = memberIndex,
+                TargetedPlayer = target                
+            });
+        }
+
         /// <summary>
         /// Find a <see cref="GroupMember"/> with the provided <see cref="TargetPlayerIdentity"/>
         /// </summary>

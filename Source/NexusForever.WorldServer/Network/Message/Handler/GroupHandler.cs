@@ -1,4 +1,4 @@
-﻿using NexusForever.Shared.Game.Events;
+using NexusForever.Shared.Game.Events;
 using NexusForever.Shared.Network;
 using NexusForever.Shared.Network.Message;
 using NexusForever.WorldServer.Game.CharacterCache;
@@ -32,11 +32,32 @@ namespace NexusForever.WorldServer.Network.Message.Handler
         /// </summary> 
         public static void AssertGroupId(WorldSession session, ulong recievedGroupId)
         {
+            if (session.Player.GroupMember == null || session.Player.GroupMember.Group == null)
+                throw new InvalidPacketValueException();
+
             // This will need updating - we may need to track the fact the player can belong to two groups.
             //  a "Current" and a "previous"
             ulong sessionGroupId = session.Player.GroupMember.Group.Id;
             if (sessionGroupId != recievedGroupId)
-                throw new InvalidPacketValueException();
+                throw new InvalidPacketValueException("Player does not belong to the group they wish to perform the action on.");
+        }
+
+        /// <summary>
+        /// Asserts that the <see cref="Player"/> session group member can perform the requested action.
+        /// </summary> 
+        public static void AssertPermission(WorldSession session, GroupMemberInfoFlags action)
+        {
+            if (!session.Player.GroupMember.Flags.HasFlag(action))
+                throw new InvalidPacketValueException("Player does not have the Group Role required to perform that action.");
+        }
+
+        /// <summary>
+        /// Asserts that the <see cref="Player"/> session group member can perform the requested action.
+        /// </summary> 
+        public static void AssertGroupLeader(WorldSession session)
+        {
+            if (!session.Player.GroupMember.IsPartyLeader)
+                throw new InvalidPacketValueException("Player must be the leader of the group to perform this action.");
         }
 
         [MessageHandler(GameMessageOpcode.ClientGroupInvite)]
@@ -138,6 +159,7 @@ namespace NexusForever.WorldServer.Network.Message.Handler
         public static void HandleGroupKick(WorldSession session, ClientGroupKick kick)
         {
             AssertGroupId(session, kick.GroupId);
+            AssertPermission(session, GroupMemberInfoFlags.CanKick);
 
             Group group = GroupManager.Instance.GetGroupById(kick.GroupId);
             if (group == null)
@@ -151,7 +173,7 @@ namespace NexusForever.WorldServer.Network.Message.Handler
             if (group.Members.Count == 2)
                 group.Disband();
             else
-                group.KickMember(kick.TargetedPlayer);            
+                group.KickMember(kick.TargetedPlayer);
         }
 
         [MessageHandler(GameMessageOpcode.ClientGroupLeave)]
@@ -174,12 +196,14 @@ namespace NexusForever.WorldServer.Network.Message.Handler
                 return;
             }
 
-            group.RemoveMember(session.Player.GroupMember); 
+            group.RemoveMember(session.Player.GroupMember);
         }
-         
+
         [MessageHandler(GameMessageOpcode.ClientGroupMarkUnit)]
         public static void HandleGroupMarkUnit(WorldSession session, ClientGroupMark clientMark)
-        { 
+        {
+            AssertPermission(session, GroupMemberInfoFlags.CanMark);
+
             ulong groupId = session.Player.GroupMember.Group.Id;
             Group group = GroupManager.Instance.GetGroupById(groupId);
             if (group == null)
@@ -195,7 +219,8 @@ namespace NexusForever.WorldServer.Network.Message.Handler
         public static void HandleGroupFlagsChanged(WorldSession session, ClientGroupFlagsChanged clientGroupFlagsChanged)
         {
             AssertGroupId(session, clientGroupFlagsChanged.GroupId);
-            
+            AssertGroupLeader(session);
+
             Group group = GroupManager.Instance.GetGroupById(clientGroupFlagsChanged.GroupId);
             if (group == null)
             {
@@ -204,6 +229,27 @@ namespace NexusForever.WorldServer.Network.Message.Handler
             }
 
             group.SetGroupFlags(clientGroupFlagsChanged.NewFlags);
+        }
+
+        [MessageHandler(GameMessageOpcode.ClientGroupSetRole)]
+        public static void ClientSetRole(WorldSession session, ClientGroupSetRole clientGroupSetRole)
+        {
+            AssertGroupId(session, clientGroupSetRole.GroupId);
+
+            Group group = GroupManager.Instance.GetGroupById(clientGroupSetRole.GroupId);
+            if (group == null)
+            {
+                SendGroupResult(session, GroupResult.GroupNotFound, clientGroupSetRole.GroupId, session.Player.Name);
+                return;
+            }
+
+            if (group.IsRaid && !session.Player.GroupMember.IsPartyLeader) {
+                AssertPermission(session, GroupMemberInfoFlags.RaidAssistant);
+            }
+            else {
+                AssertGroupLeader(session);
+            }
+            group.UpdateMemberRole(clientGroupSetRole.TargetedPlayer, clientGroupSetRole.ChangedFlag, clientGroupSetRole.CurrentFlags.HasFlag(clientGroupSetRole.ChangedFlag));
         }
     }
 }

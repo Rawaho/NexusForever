@@ -17,14 +17,12 @@ namespace NexusForever.WorldServer.Game.Group
         /// </summary>
         public Group CreateGroup(Player player)
         {
-            Group group = new Group(NextGroupId(), player);
-
-            groups.Add(group.Id, group);
-
             // Player is already leader in a group
             if (groupOwner.ContainsKey(player.CharacterId))
                 return null;
 
+            Group group = new Group(NextGroupId(), player);
+            groups.Add(group.Id, group);
             groupOwner.Add(player.CharacterId, group);
 
             return group;

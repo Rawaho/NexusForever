@@ -22,12 +22,15 @@ namespace NexusForever.WorldServer.Game.Group.Model
         public bool CanMark => (Flags & GroupMemberInfoFlags.CanMark) != 0;
         public bool CanReadyCheck => (Flags & GroupMemberInfoFlags.CanReadyCheck) != 0;
 
+        private bool AreFlagsSet;
+
         public GroupMember(ulong id, Group group, Player player)
         {
             Id      = id;
             Group   = group;
             Player  = player;
             ZoneId  = (ushort)player.Zone.Id;
+            AreFlagsSet = false;
         }
 
         /// <summary>
@@ -35,29 +38,13 @@ namespace NexusForever.WorldServer.Game.Group.Model
         /// </summary>
         public GroupMemberInfoFlags Flags
         {
-            get
-            {
-                GroupMemberInfoFlags flags = this.flags;
-                if (IsPartyLeader)
-                    flags |= GroupMemberInfoFlags.GroupAdminFlags;
-                else
-                    flags |= GroupMemberInfoFlags.GroupMemberFlags;
-
-                if ((flags & GroupMemberInfoFlags.RaidAssistant) != 0)
-                    flags |= GroupMemberInfoFlags.GroupAssistantFlags;
-
-                if ((flags & GroupMemberInfoFlags.MainTank) != 0)
-                {
-                    flags |= GroupMemberInfoFlags.MainTankFlags;
-                    flags &= ~GroupMemberInfoFlags.RoleFlags;
-                    flags |= GroupMemberInfoFlags.Tank;
-                }
-
-                if ((flags & GroupMemberInfoFlags.MainAssist) != 0)
-                    flags |= GroupMemberInfoFlags.MainAssistFlags;
+            get {
+                if (!AreFlagsSet)
+                    SetInitialFlags();
 
                 return flags;
             }
+            set { this.flags = value; }
         }
 
         /// <summary>
@@ -106,6 +93,15 @@ namespace NexusForever.WorldServer.Game.Group.Model
                 this.flags |= flags;
             else
                 this.flags &= ~flags;
+        }
+
+        private void SetInitialFlags()
+        {
+            this.AreFlagsSet = true;
+            if (IsPartyLeader)
+                flags |= GroupMemberInfoFlags.GroupAdminFlags;
+            else
+                flags |= GroupMemberInfoFlags.GroupMemberFlags;
         }
 
         /// <summary>
