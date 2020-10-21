@@ -235,7 +235,7 @@ namespace NexusForever.WorldServer.Network.Message.Handler
         }
 
         [MessageHandler(GameMessageOpcode.ClientGroupSetRole)]
-        public static void ClientSetRole(WorldSession session, ClientGroupSetRole clientGroupSetRole)
+        public static void HandleGroupSetRole(WorldSession session, ClientGroupSetRole clientGroupSetRole)
         {
             AssertGroupId(session, clientGroupSetRole.GroupId);
 
@@ -246,14 +246,28 @@ namespace NexusForever.WorldServer.Network.Message.Handler
                 return;
             }
 
-            if (group.IsRaid && !session.Player.GroupMember.IsPartyLeader) {
-                AssertPermission(session, GroupMemberInfoFlags.RaidAssistant);
-            }
-            else {
-                AssertGroupLeader(session);
+            group.UpdateMemberRole(session.Player.GroupMember, clientGroupSetRole.TargetedPlayer, clientGroupSetRole.ChangedFlag, clientGroupSetRole.CurrentFlags.HasFlag(clientGroupSetRole.ChangedFlag));
+        }
+
+        [MessageHandler(GameMessageOpcode.ClientGroupSendReadyCheck)]
+        public static void HandleSendReadyCheck(WorldSession session, ClientGroupSendReadyCheck sendReadyCheck)
+        {
+            AssertGroupId(session, sendReadyCheck.GroupId);
+             
+            Group group = GroupManager.Instance.GetGroupById(sendReadyCheck.GroupId);
+            if (group == null)
+            {
+                SendGroupResult(session, GroupResult.GroupNotFound, sendReadyCheck.GroupId, session.Player.Name);
+                return;
             }
 
-            group.UpdateMemberRole(session.Player.GroupMember, clientGroupSetRole.TargetedPlayer, clientGroupSetRole.ChangedFlag, clientGroupSetRole.CurrentFlags.HasFlag(clientGroupSetRole.ChangedFlag));
+            if (group.IsRaid && !session.Player.GroupMember.IsPartyLeader)
+                AssertPermission(session, GroupMemberInfoFlags.CanReadyCheck);
+            else
+                AssertGroupLeader(session);
+
+            group.PrepareForReadyCheck();
+            group.PerformReadyCheck(session.Player, sendReadyCheck.Message);
         }
     }
 }

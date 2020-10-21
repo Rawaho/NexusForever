@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore.Internal;
+using Microsoft.EntityFrameworkCore.Internal;
 using NexusForever.Shared;
 using NexusForever.Shared.Network.Message;
 using NexusForever.WorldServer.Game.Entity;
@@ -373,6 +373,9 @@ namespace NexusForever.WorldServer.Game.Group
             });
         }
 
+        /// <summary>
+        /// Converts the Party to a raid
+        /// </summary>
         public void ConvertToRaid()
         {            
             SetGroupSize();
@@ -380,6 +383,42 @@ namespace NexusForever.WorldServer.Game.Group
             //{
             //
             //});
+        }
+
+        /// <summary>
+        /// Prepares the group for a readycheck
+        /// </summary>
+        public void PrepareForReadyCheck()
+        {
+            uint memberIndex = 0;
+            foreach (GroupMember member in Members.Values)
+            {
+                member.PrepareForReadyCheck();
+
+                BroadcastPacket(new ServerGroupMemberFlagsChanged
+                {
+                    GroupId = Id,
+                    ChangedFlags = member.Flags,
+                    IsFromPromotion = false,
+                    MemberIndex = memberIndex,
+                    TargetedPlayer = new TargetPlayerIdentity() { CharacterId = member.Player.CharacterId, RealmId = WorldServer.RealmId },
+                });
+
+                memberIndex++;
+            }
+        }
+
+        /// <summary>
+        /// Prepares the group for a readycheck
+        /// </summary>
+        public void PerformReadyCheck(Player invoker, string message)
+        { 
+            BroadcastPacket(new ServerGroupSendReadyCheck
+            {
+                GroupId = Id,
+                Invoker = new TargetPlayerIdentity() { CharacterId = invoker.CharacterId, RealmId = WorldServer.RealmId },
+                Message = message,
+            });
         }
 
         /// <summary>
@@ -435,7 +474,7 @@ namespace NexusForever.WorldServer.Game.Group
 
         private void SetGroupSize()
         {
-            if ((Flags & GroupFlags.Raid) != 0)
+            if (IsRaid)
                 MaxGroupSize = 20;
             else
                 MaxGroupSize = 5;
