@@ -358,7 +358,7 @@ namespace NexusForever.WorldServer.Game.Group
         /// <param name="newFlags"></param>
         public void SetGroupFlags(GroupFlags newFlags)
         {
-            bool shouldSetToRaid = !IsRaid && !Flags.HasFlag(newFlags);
+            bool shouldSetToRaid = !IsRaid && newFlags.HasFlag(GroupFlags.Raid);
             Flags = newFlags; 
             
             if(shouldSetToRaid)
