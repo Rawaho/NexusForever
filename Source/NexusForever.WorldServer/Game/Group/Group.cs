@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore.Internal;
+﻿using Microsoft.EntityFrameworkCore.Internal;
 using NexusForever.Shared;
 using NexusForever.Shared.Network.Message;
 using NexusForever.WorldServer.Game.Entity;
@@ -358,14 +358,12 @@ namespace NexusForever.WorldServer.Game.Group
         /// <param name="newFlags"></param>
         public void SetGroupFlags(GroupFlags newFlags)
         {
-            bool shouldConvertToRaid = false;
-            if (!IsRaid && newFlags.HasFlag(GroupFlags.Raid))
-                shouldConvertToRaid = true;
+            bool shouldSetToRaid = !IsRaid && !Flags.HasFlag(newFlags);
+            Flags = newFlags; 
+            
+            if(shouldSetToRaid)
+                ConvertToRaid();
              
-            if (shouldConvertToRaid)
-                ConvertToRaid(); 
-
-            Flags = newFlags;
             BroadcastPacket(new ServerGroupFlagsChanged
             {
                 GroupId = Id,
@@ -377,12 +375,14 @@ namespace NexusForever.WorldServer.Game.Group
         /// Converts the Party to a raid
         /// </summary>
         public void ConvertToRaid()
-        {            
+        { 
             SetGroupSize();
-            //BroadcastPacket(new ServerGroupSizeChange
-            //{
-            //
-            //});
+            BroadcastPacket(new ServerGroupMaxSizeChange
+            {
+                GroupId = Id, 
+                NewFlags = Flags,
+                NewMaxSize = MaxGroupSize
+            });
         }
 
         /// <summary>
