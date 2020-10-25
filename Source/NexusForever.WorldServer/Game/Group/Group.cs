@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore.Internal;
+using Microsoft.EntityFrameworkCore.Internal;
 using NexusForever.Shared;
 using NexusForever.Shared.Network.Message;
 using NexusForever.WorldServer.Game.Entity;
@@ -18,6 +18,11 @@ namespace NexusForever.WorldServer.Game.Group
     {
         private readonly Dictionary<ulong, GroupInvite> invites = new Dictionary<ulong, GroupInvite>();
         public Dictionary<ulong, GroupMember> Members = new Dictionary<ulong, GroupMember>();
+
+        private LootRule LootRule = LootRule.NeedBeforeGreed;
+        private LootRule LootRuleThreshold = LootRule.RoundRobin;
+        private HarvestLootRule LootRuleHarvest = HarvestLootRule.FirstTagger;
+        private LootThreshold LootThreshold = LootThreshold.Good;
 
         /// <summary>
         /// Id for the current <see cref="Group"/>
@@ -601,6 +606,27 @@ namespace NexusForever.WorldServer.Game.Group
         }
 
         /// <summary>
+        /// Updates the Groups Loot Rules.
+        /// </summary>
+        public void UpdateLootRules(LootRule lootRulesUnderThreshold, LootRule lootRulesThresholdAndOver, LootThreshold lootThreshold, HarvestLootRule harvestLootRule)
+        {
+            LootRule = lootRulesUnderThreshold;
+            LootRuleThreshold = lootRulesThresholdAndOver;
+            LootThreshold = lootThreshold;
+            LootRuleHarvest = harvestLootRule;
+
+            BroadcastPacket(new ServerGroupLootRulesChange
+            {
+                GroupId = Id,
+                UnknownDWord = 0, // maybe characterId?
+                LootRulesUnderThreshold = lootRulesUnderThreshold,
+                LootRulesThresholdAndOver = lootRulesThresholdAndOver,
+                LootThreshold = lootThreshold,
+                HarvestLootRule = harvestLootRule, 
+            });
+        }
+
+        /// <summary>
         /// Find a <see cref="GroupMember"/> with the provided <see cref="TargetPlayerIdentity"/>
         /// </summary>
         public GroupMember FindMember(TargetPlayerIdentity target)
@@ -638,10 +664,10 @@ namespace NexusForever.WorldServer.Game.Group
                     CharacterId     = Leader.Player.CharacterId,
                     RealmId         = WorldServer.RealmId
                 },
-                LootRule            = LootRule.NeedBeforeGreed,
-                LootRuleThreshold   = LootRule.RoundRobin,
-                LootRuleHarvest     = HarvestLootRule.FirstTagger,
-                LootThreshold       = LootThreshold.Good,
+                LootRule            = LootRule,
+                LootRuleThreshold   = LootRuleThreshold,
+                LootRuleHarvest     = LootRuleHarvest,
+                LootThreshold       = LootThreshold,
                 MaxGroupSize        = MaxGroupSize,
                 MemberInfos         = BuildMembersInfo(),
                 RealmId             = WorldServer.RealmId,

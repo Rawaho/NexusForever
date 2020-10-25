@@ -149,6 +149,8 @@ namespace NexusForever.Shared.Network.Message
         ClientGroupKick                 = 0x0428,
         ClientGroupLeave                = 0x042B,
         ServerGroupLeave                = 0x042D,
+        ClientGroupLootRulesChange      = 0x042E,
+        ServerGroupLootRulesChange      = 0x042F,
         ClientGroupMarkUnit             = 0x0432,
         ServerGroupMemberFlagsChanged   = 0x0437,
         ClientGroupPromote              = 0x0446,

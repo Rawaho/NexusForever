@@ -310,6 +310,14 @@ namespace NexusForever.WorldServer.Network.Message.Handler
             group.PerformReadyCheck(session.Player, sendReadyCheck.Message);
         }
 
-        
+        [MessageHandler(GameMessageOpcode.ClientGroupLootRulesChange)]
+        public static void HandleGroupLootRulesChange(WorldSession session, ClientGroupLootRulesChange clientGroupLootRulesChange)
+        {
+            AssertGroupId(session, clientGroupLootRulesChange.GroupId);
+            AssertGroupLeader(session);
+
+            Group group = GroupManager.Instance.GetGroupById(clientGroupLootRulesChange.GroupId);
+            group.UpdateLootRules(clientGroupLootRulesChange.LootRulesUnderThreshold, clientGroupLootRulesChange.LootRulesThresholdAndOver, clientGroupLootRulesChange.Threshold, clientGroupLootRulesChange.HarvestingRule);
+        }
     }
 }
