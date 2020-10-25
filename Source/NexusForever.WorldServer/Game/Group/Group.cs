@@ -91,7 +91,7 @@ namespace NexusForever.WorldServer.Game.Group
                 if (invite.ExpirationTime <= 0d)
                 {
                     // Delete the current invite
-                    RevokeInvite(invite, true);
+                    ExpireInvite(invite);
                 }
             }
         }
@@ -103,18 +103,6 @@ namespace NexusForever.WorldServer.Game.Group
         {
             if (Members.Count > 0)
                 return Members.Last().Key + 1UL;
-            else
-                return 1;
-        }
-
-        /// <summary>
-        /// Get the next available InviteId
-        /// </summary>
-        /// <returns></returns>
-        public ulong NextInviteId()
-        {
-            if (invites.Count > 0)
-                return invites.Last().Key + 1UL;
             else
                 return 1;
         }
@@ -150,6 +138,18 @@ namespace NexusForever.WorldServer.Game.Group
         }
 
         /// <summary>
+        /// Broadcast <see cref="IWritable"/> to all <see cref="GroupMember"/>
+        /// in the <see cref="Group"/>
+        /// </summary>
+        public void BroadcastPacket(IWritable message)
+        {
+            foreach (var member in Members.Values)
+                member.Player.Session.EnqueueMessageEncrypted(message);
+        }
+
+        #region Invites
+
+        /// <summary>
         /// Create a new <see cref="GroupInvite"/>
         /// </summary>
         public GroupInvite CreateInvite(GroupMember inviter, Player invitedPlayer, GroupInviteType type)
@@ -163,29 +163,27 @@ namespace NexusForever.WorldServer.Game.Group
         }
 
         /// <summary>
-        /// Broadcast <see cref="IWritable"/> to all <see cref="GroupMember"/>
-        /// in the <see cref="Group"/>
+        /// Get the next available InviteId
         /// </summary>
-        public void BroadcastPacket(IWritable message)
+        /// <returns></returns>
+        public ulong NextInviteId()
         {
-            foreach (var member in Members.Values)
-                member.Player.Session.EnqueueMessageEncrypted(message);
+            if (invites.Count > 0)
+                return invites.Last().Key + 1UL;
+            else
+                return 1;
         }
 
         /// <summary>
-        /// Revoke <see cref="GroupInvite"/>
+        /// Exprires the <see cref="GroupInvite"/> notifying all relevant parties of the expiration
         /// </summary>
-        public void RevokeInvite(GroupInvite invite, bool isExpired = false)
+        /// <param name="invite">The Invite to Expire.</param>
+        public void ExpireInvite(GroupInvite invite)
         {
             if (!invites.ContainsKey(invite.InviteId))
                 return;
 
-            invites.Remove(invite.InviteId);
-            invite.TargetPlayer.GroupInvite = null;
-
-            if (!isExpired)
-                return;
-
+            RemoveInvite(invite);
             switch (invite.Type)
             {
                 case GroupInviteType.Invite:
@@ -197,6 +195,103 @@ namespace NexusForever.WorldServer.Game.Group
                     break;
             }
         }
+
+        /// <summary>
+        /// Accepts the <see cref="GroupInvite"/> and Adds the Invited Player to the group.
+        /// </summary>
+        /// <param name="invite">The <see cref="GroupInvite"/> to accept.</param>
+        public void AcceptInvite(string inviteeName)
+        {
+            GroupInvite invite = invites.Values.Single(inv => inv.TargetPlayer.Name.Equals(inviteeName));
+            if (invite == null)
+                return;
+
+            AcceptInvite(invite);
+        }
+        /// <summary>
+        /// Accepts the <see cref="GroupInvite"/> and Adds the Invited Player to the group.
+        /// </summary>
+        /// <param name="invite">The <see cref="GroupInvite"/> to accept.</param>
+        public void AcceptInvite(GroupInvite invite)
+        {
+            GroupMember addedMember = CreateMember(invite.TargetPlayer);
+            if (addedMember == null)
+                return;
+
+            RemoveInvite(invite);
+            AddMember(addedMember);
+
+            switch (invite.Type)
+            {
+                case GroupInviteType.Invite:
+                    GroupHandler.SendGroupResult(Leader.Player.Session, GroupResult.Accepted, Id, invite.TargetPlayer.Name);
+                    break;
+                case GroupInviteType.Request:
+                    invite.TargetPlayer.Session.EnqueueMessageEncrypted(new ServerGroupRequestJoinResult
+                    {
+                        GroupId = Id,
+                        IsJoin = true,
+                        Name = Leader.Player.Name,
+                        Result = GroupResult.Accepted
+                    });  
+                    break;
+                case GroupInviteType.Referral:
+                    break;
+            }
+            
+        }
+         
+        /// <summary>
+        /// Declines the <see cref="GroupInvite"/> by player name.
+        /// </summary>
+        public void DeclineInvite(string inviteeName)
+        {
+            GroupInvite invite = invites.Values.Single(inv => inv.TargetPlayer.Name.Equals(inviteeName));
+            if (invite == null)
+                return;
+
+            DeclineInvite(invite);
+        }
+        /// <summary>
+        /// Declines the <see cref="GroupInvite"/> notifying all relevant parties of the invite result.
+        /// </summary>
+        public void DeclineInvite(GroupInvite invite)
+        {
+            if (!invites.ContainsKey(invite.InviteId))
+                return;
+
+            RemoveInvite(invite); 
+            switch (invite.Type)
+            {
+                case GroupInviteType.Invite:
+                    GroupHandler.SendGroupResult(Leader.Player.Session, GroupResult.Declined, Id, invite.TargetPlayer.Name);
+                    break;
+                case GroupInviteType.Request:
+                    invite.TargetPlayer.Session.EnqueueMessageEncrypted(new ServerGroupRequestJoinResult
+                    {
+                        GroupId = Id,
+                        IsJoin = false,
+                        Name = Leader.Player.Name,
+                        Result = GroupResult.Declined
+                    });
+                    //GroupHandler.SendGroupResult(invite.TargetPlayer.Session, GroupResult.Declined, Id, Leader.Player.Name);
+                    break;
+                case GroupInviteType.Referral:
+                    break;
+            } 
+        }
+
+        private void RemoveInvite(GroupInvite invite)
+        {
+            if (!invites.ContainsKey(invite.InviteId))
+                return;
+
+            invites.Remove(invite.InviteId);
+            invite.TargetPlayer.GroupInvite = null;
+        }
+
+        #endregion
+
 
         /// <summary>
         /// Check if a <see cref="GroupMember"/> can join the <see cref="Group"/>
@@ -454,6 +549,33 @@ namespace NexusForever.WorldServer.Game.Group
                 MemberIndex = memberIndex,
                 TargetedPlayer = target                
             });
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        public void HandleJoinRequest(Player prospective)
+        {
+            if (CreateInvite(Leader, prospective, GroupInviteType.Request) == null)
+                return;
+
+            /** Currently assuming that most of this packet is feking useless - but its what is expected.
+             * It seems stupid to send GroupMemeberInfo about somone who is not in the group.
+             * If they are not in the group, GroupIndex and Flags are useless.
+             */
+            Leader.Player.Session.EnqueueMessageEncrypted(
+                new ServerGroupRequestJoinResponse
+                {
+                     GroupId = Id,
+                     MemberInfo = new GroupMemberInfo
+                     {
+                         Member = prospective.BuildGroupMember(),
+                         Flags = 0,  // I am assuming this is useless, the client seems todo nothing with it
+                         GroupIndex = 0, // I am assuming this is useless, the client seems todo nothing with it
+                         MemberIdentity = new TargetPlayerIdentity() {  CharacterId = prospective.CharacterId, RealmId = WorldServer.RealmId }
+                     } 
+                }
+            );
         }
 
         /// <summary>

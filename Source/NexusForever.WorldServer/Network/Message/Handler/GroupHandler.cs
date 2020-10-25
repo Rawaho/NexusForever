@@ -1,14 +1,11 @@
-﻿using NexusForever.Shared.Game.Events;
-using NexusForever.Shared.Network;
+﻿using NexusForever.Shared.Network;
 using NexusForever.Shared.Network.Message;
 using NexusForever.WorldServer.Game.CharacterCache;
 using NexusForever.WorldServer.Game.Entity;
 using NexusForever.WorldServer.Game.Group;
 using NexusForever.WorldServer.Game.Group.Static;
 using NexusForever.WorldServer.Network.Message.Model;
-using NexusForever.WorldServer.Network.Message.Model.Shared;
-using System.Diagnostics;
-using System.Net.NetworkInformation;
+using NexusForever.WorldServer.Network.Message.Model.Shared; 
 
 namespace NexusForever.WorldServer.Network.Message.Handler
 {
@@ -91,6 +88,8 @@ namespace NexusForever.WorldServer.Network.Message.Handler
                 return;
             }
 
+            //TODO: https://www.reddit.com/r/WildStar/comments/28b079/how_to_use_join_to_join_groups/
+
             Group group = GroupManager.Instance.GetGroupByLeader(session.Player) ?? GroupManager.Instance.CreateGroup(session.Player);
             if (!group.CanJoinGroup(out GroupResult result))
             {
@@ -114,6 +113,28 @@ namespace NexusForever.WorldServer.Network.Message.Handler
                 SendGroupResult(session, GroupResult.GroupNotFound, targetPlayerName: joinRequest.Name);
                 return;
             }
+
+            
+            group.HandleJoinRequest(session.Player); 
+        }
+
+        [MessageHandler(GameMessageOpcode.ClientGroupRequestJoinResponse)]
+        public static void HandleClientGroupRequestJoinResponse(WorldSession session, ClientGroupRequestJoinResponse clientGroupRequestJoinResponse)
+        {
+            // This comes from the leader / assist of the group, assert they are part of the correct group.
+            AssertGroupId(session, clientGroupRequestJoinResponse.GroupId);
+
+            Group group = GroupManager.Instance.GetGroupById(clientGroupRequestJoinResponse.GroupId);
+            if (group == null)
+            {
+                SendGroupResult(session, GroupResult.GroupNotFound);
+                return;
+            }
+              
+            if (clientGroupRequestJoinResponse.AcceptedRequest)
+                group.AcceptInvite(clientGroupRequestJoinResponse.InviteeName);
+            else
+                group.DeclineInvite(clientGroupRequestJoinResponse.InviteeName);
         }
 
         [MessageHandler(GameMessageOpcode.ClientGroupInviteResponse)]
@@ -133,11 +154,7 @@ namespace NexusForever.WorldServer.Network.Message.Handler
             // Check if the targeted player declined the group invite.
             if (response.Result == GroupInviteResult.Declined)
             {
-                SendGroupResult(leaderSession, GroupResult.Declined, response.GroupId, session.Player.Name);
-
-                joinedGroup.RevokeInvite(session.Player.GroupInvite);
-                session.Player.GroupInvite = null;
-
+                joinedGroup.DeclineInvite(session.Player.GroupInvite);
                 return;
             }
 
@@ -148,14 +165,7 @@ namespace NexusForever.WorldServer.Network.Message.Handler
                 return;
             }
 
-            var addedMember = joinedGroup.CreateMember(session.Player);
-            if (addedMember == null)
-                return;
-
-            joinedGroup.RevokeInvite(session.Player.GroupInvite);
-            joinedGroup.AddMember(addedMember);
-
-            SendGroupResult(leaderSession, GroupResult.Accepted, response.GroupId, session.Player.Name);
+            joinedGroup.AcceptInvite(session.Player.GroupInvite);
         }
 
         [MessageHandler(GameMessageOpcode.ClientGroupKick)]
@@ -269,5 +279,7 @@ namespace NexusForever.WorldServer.Network.Message.Handler
             group.PrepareForReadyCheck();
             group.PerformReadyCheck(session.Player, sendReadyCheck.Message);
         }
+
+        
     }
 }
