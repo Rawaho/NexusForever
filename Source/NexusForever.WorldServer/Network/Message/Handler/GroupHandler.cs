@@ -5,7 +5,9 @@ using NexusForever.WorldServer.Game.Entity;
 using NexusForever.WorldServer.Game.Group;
 using NexusForever.WorldServer.Game.Group.Static;
 using NexusForever.WorldServer.Network.Message.Model;
-using NexusForever.WorldServer.Network.Message.Model.Shared; 
+using NexusForever.WorldServer.Network.Message.Model.Shared;
+using GroupMember = NexusForever.WorldServer.Game.Group.Model.GroupMember;
+using NetworkGroupMember = NexusForever.WorldServer.Network.Message.Model.Shared.GroupMember;
 
 namespace NexusForever.WorldServer.Network.Message.Handler
 {
@@ -67,6 +69,13 @@ namespace NexusForever.WorldServer.Network.Message.Handler
                 return;
             }
 
+            // Check if player is already grouped.
+            if (targetedPlayer.GroupMember != null)
+            {
+                SendGroupResult(session, GroupResult.Grouped, targetPlayerName: groupInvite.Name);
+                return;
+            }
+
             // Check if inviter faction is same as invited faction.
             if (targetedPlayer.Faction1 != session.Player.Faction1)
             {
@@ -88,33 +97,54 @@ namespace NexusForever.WorldServer.Network.Message.Handler
                 return;
             }
 
-            //TODO: https://www.reddit.com/r/WildStar/comments/28b079/how_to_use_join_to_join_groups/
-
-            Group group = GroupManager.Instance.GetGroupByLeader(session.Player) ?? GroupManager.Instance.CreateGroup(session.Player);
-            if (!group.CanJoinGroup(out GroupResult result))
+            if(session.Player.GroupMember == null)
             {
-                SendGroupResult(session, result, group.Id, groupInvite.Name);
+                // Player is not part of a group - lets create a new one and invite the new guy.
+                Group newGroup = GroupManager.Instance.CreateGroup(session.Player);
+                newGroup.Invite(session.Player, targetedPlayer);
+                return;
+            }
+            
+            // At this point, the player must be part of a group            
+            Group group = session.Player.GroupMember.Group;
+            GroupMember membership = session.Player.GroupMember;
+
+            if (group.IsFull)
+            {
+                SendGroupResult(session, GroupResult.Full, group.Id, groupInvite.Name);
                 return;
             }
 
-            group.Invite(session.Player, targetedPlayer);
+            // The inviter is the Leader or has Invite permissions, so just do an invite.
+            if(group.Leader.Id == membership.Id || membership.Flags.HasFlag(GroupMemberInfoFlags.CanInvite))
+            {
+                group.Invite(session.Player, targetedPlayer); 
+            }
+            else // inviter is another group memeber w/o invite permissions, so we create a referal.
+            {
+                group.ReferMember(membership, targetedPlayer);
+            }
         }
 
         [MessageHandler(GameMessageOpcode.ClientGroupRequestJoin)]
         public static void HandleJoinGroupRequest(WorldSession session, ClientGroupRequestJoin joinRequest)
         {
-            ICharacter character = CharacterManager.Instance.GetCharacterInfo(joinRequest.Name);
-            if (!(character is Player targetedPlayer))
+            if (session.Player.GroupMember != null) // player who did /join is already in a group. This has no effect.
+                return; 
+
+            ICharacter target = CharacterManager.Instance.GetCharacterInfo(joinRequest.Name);
+            if (!(target is Player targetedPlayer))
                 return;
 
-            Group group = GroupManager.Instance.GetGroupByLeader(targetedPlayer);
+            Group group = GroupManager.Instance.GetGroupByLeader(targetedPlayer); 
             if (group == null)
             {
-                SendGroupResult(session, GroupResult.GroupNotFound, targetPlayerName: joinRequest.Name);
-                return;
+                // Player and Target awre not part of a group - create one for them both so /join acts as /invite.
+                Group newGroup = GroupManager.Instance.CreateGroup(session.Player);
+                newGroup.Invite(session.Player, targetedPlayer);
+                return; 
             }
-
-            
+             
             group.HandleJoinRequest(session.Player); 
         }
 

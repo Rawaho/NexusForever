@@ -43,6 +43,11 @@ namespace NexusForever.WorldServer.Game.Group
         /// If this group is a raid.
         /// </summary>
         public bool IsRaid { get => Flags.HasFlag(GroupFlags.Raid); }
+        
+        /// <summary>
+        /// True if the Group is full.
+        /// </summary>
+        public bool IsFull { get => Members.Count >= MaxGroupSize; }
 
         private bool isNewGroup { get; set; }
 
@@ -281,6 +286,24 @@ namespace NexusForever.WorldServer.Game.Group
             } 
         }
 
+        /// <summary>
+        /// Refers a <see cref="Player"/> to be invited to the guild.
+        /// </summary>
+        public void ReferMember(GroupMember inviter, Player invitee)
+        {
+            if (CreateInvite(inviter, invitee, GroupInviteType.Referral) == null)
+                return;
+
+            Leader.Player.Session.EnqueueMessageEncrypted(
+                new ServerGroupReferral
+                {
+                    GroupId = Id,
+                    InviteeIdentity = new TargetPlayerIdentity {CharacterId = invitee.CharacterId, RealmId = WorldServer.RealmId },
+                    InviteeName = invitee.Name
+                }
+            );
+        }
+
         private void RemoveInvite(GroupInvite invite)
         {
             if (!invites.ContainsKey(invite.InviteId))
@@ -291,8 +314,7 @@ namespace NexusForever.WorldServer.Game.Group
         }
 
         #endregion
-
-
+         
         /// <summary>
         /// Check if a <see cref="GroupMember"/> can join the <see cref="Group"/>
         /// </summary>
