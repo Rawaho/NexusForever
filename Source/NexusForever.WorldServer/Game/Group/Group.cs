@@ -19,6 +19,8 @@ namespace NexusForever.WorldServer.Game.Group
         private readonly Dictionary<ulong, GroupInvite> invites = new Dictionary<ulong, GroupInvite>();
         public Dictionary<ulong, GroupMember> Members = new Dictionary<ulong, GroupMember>();
 
+        private Model.GroupMarkerInfo MarkerInfo;
+
         private LootRule LootRule = LootRule.NeedBeforeGreed;
         private LootRule LootRuleThreshold = LootRule.RoundRobin;
         private HarvestLootRule LootRuleHarvest = HarvestLootRule.FirstTagger;
@@ -55,7 +57,7 @@ namespace NexusForever.WorldServer.Game.Group
         public bool IsFull { get => Members.Count >= MaxGroupSize; }
 
         private bool isNewGroup { get; set; }
-
+          
         /// <summary>
         /// Creates an instance of <see cref="Group"/>
         /// </summary>
@@ -65,8 +67,9 @@ namespace NexusForever.WorldServer.Game.Group
             Id     = id;
             Flags |= GroupFlags.OpenWorld;
             Leader = CreateMember(leader);
+            MarkerInfo = new Model.GroupMarkerInfo(this);
 
-            this.SetGroupSize();
+            SetGroupSize();
         }
 
         /// <summary>
@@ -627,6 +630,14 @@ namespace NexusForever.WorldServer.Game.Group
         }
 
         /// <summary>
+        /// Marks the specified unitId with the <see cref="GroupMarker"/>.
+        /// </summary>
+        public void MarkUnit(uint unitId, GroupMarker marker)
+        {
+            MarkerInfo.MarkTarget(unitId, marker);
+        } 
+         
+        /// <summary>
         /// Find a <see cref="GroupMember"/> with the provided <see cref="TargetPlayerIdentity"/>
         /// </summary>
         public GroupMember FindMember(TargetPlayerIdentity target)
@@ -671,6 +682,7 @@ namespace NexusForever.WorldServer.Game.Group
                 MaxGroupSize        = MaxGroupSize,
                 MemberInfos         = BuildMembersInfo(),
                 RealmId             = WorldServer.RealmId,
+                MarkerInfo          = MarkerInfo.Build()
             };
         }
     }

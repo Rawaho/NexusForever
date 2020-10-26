@@ -20,6 +20,8 @@ namespace NexusForever.WorldServer.Network.Message.Model.Shared
         public TargetPlayerIdentity LeaderIdentity { get; set; } = new TargetPlayerIdentity();
         public ushort RealmId { get; set; }     //< Why again? Tf?
 
+        public GroupMarkerInfo MarkerInfo { get; set; }
+
         public void Write(GamePacketWriter writer)
         {
             writer.Write(GroupId);
@@ -37,8 +39,7 @@ namespace NexusForever.WorldServer.Network.Message.Model.Shared
             LeaderIdentity.Write(writer);
             writer.Write(RealmId, 14);
 
-            // Some unk for loop size, skipping for now, don't see anything on le sniff.
-            writer.Write(0);
+            MarkerInfo.Write(writer);
         }
     }
 }

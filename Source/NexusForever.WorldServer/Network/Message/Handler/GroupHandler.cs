@@ -255,7 +255,7 @@ namespace NexusForever.WorldServer.Network.Message.Handler
                 return;
             }
 
-            // UnitID could be either a Group Member, or a Mob.
+            group.MarkUnit(clientMark.UnitId, clientMark.Marker);
         }
 
         [MessageHandler(GameMessageOpcode.ClientGroupFlagsChanged)]

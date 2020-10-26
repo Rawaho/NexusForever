@@ -161,6 +161,7 @@ namespace NexusForever.Shared.Network.Message
         ServerGroupRemove               = 0x0450,
         ClientGroupRequestJoinResponse  = 0x0453,
         ServerGroupRequestJoinResult    = 0x0456,
+        ServerGroupMarkUnit             = 0x045B,
         ClientQuestShareResult          = 0x045E,
         ClientQuestShare                = 0x045F,
         ServerGroupMaxSizeChange        = 0x0462,
