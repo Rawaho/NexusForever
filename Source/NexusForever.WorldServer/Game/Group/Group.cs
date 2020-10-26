@@ -256,7 +256,7 @@ namespace NexusForever.WorldServer.Game.Group
         /// </summary>
         public void DeclineInvite(string inviteeName)
         {
-            GroupInvite invite = invites.Values.Single(inv => inv.TargetPlayer.Name.Equals(inviteeName));
+            GroupInvite invite = invites.Values.SingleOrDefault(inv => inv.TargetPlayer.Name.Equals(inviteeName));
             if (invite == null)
                 return;
 
