@@ -212,7 +212,7 @@ namespace NexusForever.WorldServer.Game.Group
         /// <param name="invite">The <see cref="GroupInvite"/> to accept.</param>
         public void AcceptInvite(string inviteeName)
         {
-            GroupInvite invite = invites.Values.Single(inv => inv.TargetPlayer.Name.Equals(inviteeName));
+            GroupInvite invite = invites.Values.SingleOrDefault(inv => inv.TargetPlayer.Name.Equals(inviteeName));
             if (invite == null)
                 return;
 
