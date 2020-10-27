@@ -135,19 +135,21 @@ namespace NexusForever.WorldServer.Network.Message.Handler
             ICharacter target = CharacterManager.Instance.GetCharacterInfo(joinRequest.Name);
             if (!(target is Player targetedPlayer))
                 return;
-
-            //TODO: if the target is in a group?
-
-            Group group = GroupManager.Instance.GetGroupByLeader(targetedPlayer); 
-            if (group == null)
+                        
+            if (targetedPlayer.GroupMember == null)
             {
-                // Player and Target aware not part of a group - create one for them both so /join acts as /invite.
+                // Player and Target are not part of a group - create one for them both so /join acts as /invite.
                 Group newGroup = GroupManager.Instance.CreateGroup(session.Player);
                 newGroup.Invite(session.Player, targetedPlayer);
-                return; 
             }
-             
-            group.HandleJoinRequest(session.Player); 
+            else
+            {
+                Group group = GroupManager.Instance.GetGroupByLeader(targetedPlayer);
+                if (group == null) //target player is not the leader of the group, so this acts as a referral 
+                    group.ReferMember(session.Player.GroupMember, targetedPlayer); 
+                else  // /Join was on the leader - so just do a std Join request.
+                    group.HandleJoinRequest(session.Player);             
+            }
         }
 
         [MessageHandler(GameMessageOpcode.ClientGroupRequestJoinResponse)]
