@@ -35,6 +35,8 @@ namespace NexusForever.WorldServer.Game.Group.Model
             TargetPlayer.Session.EnqueueMessageEncrypted(new ServerGroupInviteReceived
             {
                 GroupId = Group.Id,
+                InviterIndex = Inviter.GroupIndex,
+                LeaderIndex = Group.Leader.GroupIndex,
                 Members = Group.BuildGroupMembers()
             });
         }

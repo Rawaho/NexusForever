@@ -136,10 +136,12 @@ namespace NexusForever.WorldServer.Network.Message.Handler
             if (!(target is Player targetedPlayer))
                 return;
 
+            //TODO: if the target is in a group?
+
             Group group = GroupManager.Instance.GetGroupByLeader(targetedPlayer); 
             if (group == null)
             {
-                // Player and Target awre not part of a group - create one for them both so /join acts as /invite.
+                // Player and Target aware not part of a group - create one for them both so /join acts as /invite.
                 Group newGroup = GroupManager.Instance.CreateGroup(session.Player);
                 newGroup.Invite(session.Player, targetedPlayer);
                 return; 
@@ -318,6 +320,15 @@ namespace NexusForever.WorldServer.Network.Message.Handler
 
             Group group = GroupManager.Instance.GetGroupById(clientGroupLootRulesChange.GroupId);
             group.UpdateLootRules(clientGroupLootRulesChange.LootRulesUnderThreshold, clientGroupLootRulesChange.LootRulesThresholdAndOver, clientGroupLootRulesChange.Threshold, clientGroupLootRulesChange.HarvestingRule);
+        }
+
+        [MessageHandler(GameMessageOpcode.ClientGroupPromote)]
+        public static void ClientGroupPromote(WorldSession session, ClientGroupPromote clientGroupPromote)
+        {
+            AssertGroupId(session, clientGroupPromote.GroupId);
+
+            Group group = GroupManager.Instance.GetGroupById(clientGroupPromote.GroupId);
+            group.Promote(clientGroupPromote.TargetedPlayer);
         }
     }
 }

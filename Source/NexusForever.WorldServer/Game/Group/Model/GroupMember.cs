@@ -13,6 +13,7 @@ namespace NexusForever.WorldServer.Game.Group.Model
         public Group Group { get; }
         public Player Player { get; }
         public ushort ZoneId { get; set; }
+        public uint GroupIndex { get { return (uint)Group.Members.IndexOf(this); } }
 
         private GroupMemberInfoFlags flags;
 
@@ -116,7 +117,7 @@ namespace NexusForever.WorldServer.Game.Group.Model
         /// <summary>
         /// Build the <see cref="GroupMemberInfo"/> model.
         /// </summary>
-        public GroupMemberInfo BuildMemberInfo(uint index)
+        public GroupMemberInfo BuildMemberInfo()
         {
             return new GroupMemberInfo
             {
@@ -126,7 +127,7 @@ namespace NexusForever.WorldServer.Game.Group.Model
                     RealmId     = WorldServer.RealmId
                 },
                 Flags           = Flags,
-                GroupIndex      = index,
+                GroupIndex      = GroupIndex,
                 Member          = Build()
             };
         }

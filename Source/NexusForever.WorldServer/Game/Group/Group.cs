@@ -8,6 +8,7 @@ using NexusForever.WorldServer.Network.Message.Handler;
 using NexusForever.WorldServer.Network.Message.Model;
 using NexusForever.WorldServer.Network.Message.Model.Shared;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.Linq; 
 using GroupMember = NexusForever.WorldServer.Game.Group.Model.GroupMember;
 using NetworkGroupMember = NexusForever.WorldServer.Network.Message.Model.Shared.GroupMember;
@@ -17,7 +18,7 @@ namespace NexusForever.WorldServer.Game.Group
     public class Group : IUpdate, IBuildable<GroupInfo>
     {
         private readonly Dictionary<ulong, GroupInvite> invites = new Dictionary<ulong, GroupInvite>();
-        public Dictionary<ulong, GroupMember> Members = new Dictionary<ulong, GroupMember>();
+        public List<GroupMember> Members = new List<GroupMember>();
 
         private Model.GroupMarkerInfo MarkerInfo;
 
@@ -34,7 +35,7 @@ namespace NexusForever.WorldServer.Game.Group
         /// <summary>
         /// The <see cref="Group"/> leader
         /// </summary>
-        public GroupMember Leader { get; }
+        public GroupMember Leader { get; private set; }
 
         /// <summary>
         /// <see cref="GroupFlags"/> for <see cref="Group"/>
@@ -90,7 +91,7 @@ namespace NexusForever.WorldServer.Game.Group
         public GroupMember CreateMember(Player player)
         {
             GroupMember member = new GroupMember(NextMemberId(), this, player);
-            Members.Add(member.Id, member);
+            Members.Add(member);
 
             player.GroupMember = member;
             return member;
@@ -115,7 +116,7 @@ namespace NexusForever.WorldServer.Game.Group
         public ulong NextMemberId()
         {
             if (Members.Count > 0)
-                return Members.Last().Key + 1UL;
+                return Members.Last().Id + 1UL;
             else
                 return 1;
         }
@@ -126,7 +127,7 @@ namespace NexusForever.WorldServer.Game.Group
         public List<NetworkGroupMember> BuildGroupMembers()
         {
             List<NetworkGroupMember> memberList = new List<NetworkGroupMember>();
-            foreach (var member in Members.Values)
+            foreach (var member in Members)
             {
                 NetworkGroupMember groupMember = member.Build();
                 groupMember.GroupMemberId = (ushort)member.Id;
@@ -141,11 +142,10 @@ namespace NexusForever.WorldServer.Game.Group
         /// </summary>
         public List<GroupMemberInfo> BuildMembersInfo()
         {
-            List<GroupMemberInfo> memberList = new List<GroupMemberInfo>();
-            uint groupIndex = 1;
+            List<GroupMemberInfo> memberList = new List<GroupMemberInfo>(); 
 
-            foreach (var member in Members.Values)
-                memberList.Add(member.BuildMemberInfo(groupIndex++));
+            foreach (var member in Members)
+                memberList.Add(member.BuildMemberInfo());
 
             return memberList;
         }
@@ -156,7 +156,7 @@ namespace NexusForever.WorldServer.Game.Group
         /// </summary>
         public void BroadcastPacket(IWritable message)
         {
-            foreach (var member in Members.Values)
+            foreach (var member in Members)
                 member.Player.Session.EnqueueMessageEncrypted(message);
         }
 
@@ -355,7 +355,7 @@ namespace NexusForever.WorldServer.Game.Group
             {
                 isNewGroup = false;
 
-                foreach (var member in Members.Values)
+                foreach (var member in Members)
                 {
                     ServerGroupJoin groupJoinPacket = new ServerGroupJoin
                     {
@@ -372,11 +372,7 @@ namespace NexusForever.WorldServer.Game.Group
                 }
             }
             else
-            {
-                uint groupIndex = 0u;
-                foreach (var _ in Members.Values)
-                    groupIndex++;
-
+            { 
                 addedMember.Player.Session.EnqueueMessageEncrypted(new ServerGroupJoin
                 {
                     TargetPlayer        = new TargetPlayerIdentity
@@ -390,7 +386,7 @@ namespace NexusForever.WorldServer.Game.Group
                 BroadcastPacket(new ServerGroupMemberAdd
                 {
                     GroupId = Id,
-                    AddedMemberInfo = addedMember.BuildMemberInfo(groupIndex)
+                    AddedMemberInfo = addedMember.BuildMemberInfo()
                 });
             }
         }
@@ -412,7 +408,7 @@ namespace NexusForever.WorldServer.Game.Group
             if (kickedMember.IsPartyLeader)
                 return;
 
-            if (!Members.Remove(kickedMember.Id))
+            if (!Members.Remove(kickedMember))
                 return;
 
             // Tell the player they are no longer in a group.
@@ -438,11 +434,11 @@ namespace NexusForever.WorldServer.Game.Group
         /// <param name="memberToRemove"></param>
         public void RemoveMember(GroupMember memberToRemove)
         {
-            if (!this.Members.ContainsKey(memberToRemove.Id))
+            if (!this.Members.Contains(memberToRemove))
                 return;
 
             memberToRemove.Player.GroupMember = null;
-            Members.Remove(memberToRemove.Id);
+            Members.Remove(memberToRemove);
 
             memberToRemove.Player.Session.EnqueueMessageEncrypted(new ServerGroupLeave
             {
@@ -466,7 +462,7 @@ namespace NexusForever.WorldServer.Game.Group
         /// </summary>
         public void Disband()
         {
-            foreach (GroupMember member in Members.Values)
+            foreach (GroupMember member in Members)
                 member.Player.GroupMember = null;
 
             BroadcastPacket(new ServerGroupLeave
@@ -514,9 +510,8 @@ namespace NexusForever.WorldServer.Game.Group
         /// Prepares the group for a readycheck
         /// </summary>
         public void PrepareForReadyCheck()
-        {
-            uint memberIndex = 0;
-            foreach (GroupMember member in Members.Values)
+        { 
+            foreach (GroupMember member in Members)
             {
                 member.PrepareForReadyCheck();
 
@@ -525,11 +520,9 @@ namespace NexusForever.WorldServer.Game.Group
                     GroupId = Id,
                     ChangedFlags = member.Flags,
                     IsFromPromotion = false,
-                    MemberIndex = memberIndex,
+                    MemberIndex = member.GroupIndex,
                     TargetedPlayer = new TargetPlayerIdentity() { CharacterId = member.Player.CharacterId, RealmId = WorldServer.RealmId },
-                });
-
-                memberIndex++;
+                }); 
             }
         }
 
@@ -561,13 +554,10 @@ namespace NexusForever.WorldServer.Game.Group
 
             if (!updater.CanUpdateFlags(changedFlag, member))
                 return;
-     
-            uint memberIndex = 0;
-            foreach (GroupMember groupMember in Members.Values) {
-                if (member.Player.CharacterId == target.CharacterId)
-                    break;
-
-                memberIndex++;
+      
+            foreach (GroupMember groupMember in Members) {
+                if (groupMember.Player.CharacterId == target.CharacterId)
+                    break; 
             }
               
             member.SetFlags(changedFlag, addPermission); 
@@ -576,7 +566,7 @@ namespace NexusForever.WorldServer.Game.Group
                 GroupId = Id,
                 ChangedFlags = member.Flags,
                 IsFromPromotion = false,
-                MemberIndex = memberIndex,
+                MemberIndex = member.GroupIndex,
                 TargetedPlayer = target                
             });
         }
@@ -635,14 +625,37 @@ namespace NexusForever.WorldServer.Game.Group
         public void MarkUnit(uint unitId, GroupMarker marker)
         {
             MarkerInfo.MarkTarget(unitId, marker);
-        } 
-         
+        }
+
+        /// <summary>
+        /// Promotes a <see cref="GroupMember"/> to be the new leader of the group.
+        /// </summary>
+        /// <param name="newLeader"></param>
+        public void Promote(TargetPlayerIdentity newLeader)
+        {
+            GroupMember memberToPromote = Leader; 
+            foreach(GroupMember member in Members)
+            {
+                memberToPromote = member; 
+                if (member.Player.CharacterId == newLeader.CharacterId)
+                    break; 
+            }
+            Leader = memberToPromote;
+
+            BroadcastPacket(new ServerGroupPromote
+            {
+                GroupId = Id,
+                LeaderIndex = Leader.GroupIndex,
+                NewLeader = newLeader
+            });
+        }
+
         /// <summary>
         /// Find a <see cref="GroupMember"/> with the provided <see cref="TargetPlayerIdentity"/>
         /// </summary>
         public GroupMember FindMember(TargetPlayerIdentity target)
         {
-            foreach (GroupMember member in Members.Values)
+            foreach (GroupMember member in Members)
             {
                 if (member.Player.CharacterId != target.CharacterId)
                     continue;
