@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore.Internal;
 using NexusForever.Shared;
 using NexusForever.Shared.Network.Message;
+using NexusForever.WorldServer.Game.CharacterCache;
 using NexusForever.WorldServer.Game.Entity;
 using NexusForever.WorldServer.Game.Group.Model;
 using NexusForever.WorldServer.Game.Group.Static;
@@ -81,7 +82,7 @@ namespace NexusForever.WorldServer.Game.Group
             GroupHandler.SendGroupResult(inviter.Session, GroupResult.Sent, Id, invitedPlayer.Name);
 
             GroupInvite invite = CreateInvite(inviter.GroupMember, invitedPlayer, GroupInviteType.Invite);
-            invite.SendInvite();
+            SendInvite(invite);
         }
 
         /// <summary>
@@ -167,14 +168,14 @@ namespace NexusForever.WorldServer.Game.Group
         /// </summary>
         public GroupInvite CreateInvite(GroupMember inviter, Player invitedPlayer, GroupInviteType type)
         {
-            GroupInvite invite = new GroupInvite(NextInviteId(), this, invitedPlayer, inviter, type);
+            GroupInvite invite = new GroupInvite(NextInviteId(), this, invitedPlayer.CharacterId, invitedPlayer.Name, inviter, type);
             if (!invites.TryAdd(invite.InviteId, invite))
                 return null;
 
             invitedPlayer.GroupInvite = invite;
             return invite;
         }
-
+         
         /// <summary>
         /// Get the next available InviteId
         /// </summary>
@@ -195,13 +196,17 @@ namespace NexusForever.WorldServer.Game.Group
         {
             if (!invites.ContainsKey(invite.InviteId))
                 return;
+            
+            Player inviteTarget = GetPlayerByCharacterId(invite.InvitedCharacterId);
+            if (inviteTarget == null)
+                return;
 
             RemoveInvite(invite);
             switch (invite.Type)
             {
                 case GroupInviteType.Invite:
-                    GroupHandler.SendGroupResult(Leader.Player.Session, GroupResult.ExpiredInviter, Id, invite.TargetPlayer.Name);
-                    GroupHandler.SendGroupResult(invite.TargetPlayer.Session, GroupResult.ExpiredInvitee, Id, invite.TargetPlayer.Name);
+                    GroupHandler.SendGroupResult(Leader.Player.Session, GroupResult.ExpiredInviter, Id, inviteTarget.Name);
+                    GroupHandler.SendGroupResult(inviteTarget.Session, GroupResult.ExpiredInvitee, Id, inviteTarget.Name);
                     break;
                 case GroupInviteType.Request:
                 case GroupInviteType.Referral:
@@ -215,7 +220,7 @@ namespace NexusForever.WorldServer.Game.Group
         /// <param name="invite">The <see cref="GroupInvite"/> to accept.</param>
         public void AcceptInvite(string inviteeName)
         {
-            GroupInvite invite = invites.Values.SingleOrDefault(inv => inv.TargetPlayer.Name.Equals(inviteeName));
+            GroupInvite invite = invites.Values.SingleOrDefault(inv => inv.InvitedCharacterName.Equals(inviteeName));
             if (invite == null)
                 return;
 
@@ -227,7 +232,14 @@ namespace NexusForever.WorldServer.Game.Group
         /// <param name="invite">The <see cref="GroupInvite"/> to accept.</param>
         public void AcceptInvite(GroupInvite invite)
         {
-            GroupMember addedMember = CreateMember(invite.TargetPlayer);
+            if (!invites.ContainsKey(invite.InviteId))
+                return;
+
+            Player targetPlayer = GetPlayerByCharacterId(invite.InvitedCharacterId);
+            if (targetPlayer == null)
+                return;
+
+            GroupMember addedMember = CreateMember(targetPlayer);
             if (addedMember == null)
                 return;
 
@@ -237,10 +249,10 @@ namespace NexusForever.WorldServer.Game.Group
             switch (invite.Type)
             {
                 case GroupInviteType.Invite:
-                    GroupHandler.SendGroupResult(Leader.Player.Session, GroupResult.Accepted, Id, invite.TargetPlayer.Name);
+                    GroupHandler.SendGroupResult(Leader.Player.Session, GroupResult.Accepted, Id, targetPlayer.Name);
                     break;
                 case GroupInviteType.Request:
-                    invite.TargetPlayer.Session.EnqueueMessageEncrypted(new ServerGroupRequestJoinResult
+                    targetPlayer.Session.EnqueueMessageEncrypted(new ServerGroupRequestJoinResult
                     {
                         GroupId = Id,
                         IsJoin = true,
@@ -259,7 +271,7 @@ namespace NexusForever.WorldServer.Game.Group
         /// </summary>
         public void DeclineInvite(string inviteeName)
         {
-            GroupInvite invite = invites.Values.SingleOrDefault(inv => inv.TargetPlayer.Name.Equals(inviteeName));
+            GroupInvite invite = invites.Values.SingleOrDefault(inv => inv.InvitedCharacterName.Equals(inviteeName));
             if (invite == null)
                 return;
 
@@ -273,14 +285,18 @@ namespace NexusForever.WorldServer.Game.Group
             if (!invites.ContainsKey(invite.InviteId))
                 return;
 
+            Player targetPlayer = GetPlayerByCharacterId(invite.InvitedCharacterId);
+            if (targetPlayer == null)
+                return;
+
             RemoveInvite(invite); 
             switch (invite.Type)
             {
                 case GroupInviteType.Invite:
-                    GroupHandler.SendGroupResult(Leader.Player.Session, GroupResult.Declined, Id, invite.TargetPlayer.Name);
+                    GroupHandler.SendGroupResult(Leader.Player.Session, GroupResult.Declined, Id, targetPlayer.Name);
                     break;
                 case GroupInviteType.Request:
-                    invite.TargetPlayer.Session.EnqueueMessageEncrypted(new ServerGroupRequestJoinResult
+                    targetPlayer.Session.EnqueueMessageEncrypted(new ServerGroupRequestJoinResult
                     {
                         GroupId = Id,
                         IsJoin = false,
@@ -317,12 +333,30 @@ namespace NexusForever.WorldServer.Game.Group
             if (!invites.ContainsKey(invite.InviteId))
                 return;
 
+            Player targetPlayer = GetPlayerByCharacterId(invite.InvitedCharacterId);
+            if (targetPlayer == null)
+                return;
+
             invites.Remove(invite.InviteId);
-            invite.TargetPlayer.GroupInvite = null;
+            targetPlayer.GroupInvite = null;
         }
 
+        private void SendInvite(GroupInvite invite)
+        {
+            Player targetPlayer = GetPlayerByCharacterId(invite.InvitedCharacterId);
+            if (targetPlayer == null)
+                return;
+
+            targetPlayer.Session.EnqueueMessageEncrypted(new ServerGroupInviteReceived
+            {
+                GroupId = Id,
+                InviterIndex = invite.Inviter.GroupIndex,
+                LeaderIndex = Leader.GroupIndex,
+                Members = BuildGroupMembers()
+            });
+        }
         #endregion
-         
+
         /// <summary>
         /// Check if a <see cref="GroupMember"/> can join the <see cref="Group"/>
         /// </summary>
@@ -697,6 +731,16 @@ namespace NexusForever.WorldServer.Game.Group
                 RealmId             = WorldServer.RealmId,
                 MarkerInfo          = MarkerInfo.Build()
             };
+        }
+
+
+        private Player GetPlayerByCharacterId(ulong characterId)
+        {
+            ICharacter character = CharacterManager.Instance.GetCharacterInfo(characterId);
+            if (!(character is Player targetPlayer))
+                return null;
+
+            return targetPlayer;
         }
     }
 }

@@ -10,7 +10,8 @@ namespace NexusForever.WorldServer.Game.Group.Model
 
         public ulong InviteId { get; }
         public Group Group { get;}
-        public Player TargetPlayer { get; }
+        public ulong InvitedCharacterId { get; }
+        public string InvitedCharacterName { get; }
         public GroupMember Inviter { get; }
         public GroupInviteType Type { get; }
         public double ExpirationTime { get; set; } = InviteTimeout;
@@ -18,27 +19,14 @@ namespace NexusForever.WorldServer.Game.Group.Model
         /// <summary>
         /// Creates an instance of <see cref="GroupInvite"/>
         /// </summary>
-        public GroupInvite(ulong id, Group group, Player player, GroupMember inviter, GroupInviteType type)
+        public GroupInvite(ulong id, Group group, ulong invitedCharacterId, string invitedCharacterName, GroupMember inviter, GroupInviteType type)
         {
             InviteId        = id;
             Group           = group;
-            TargetPlayer    = player;
+            InvitedCharacterId = invitedCharacterId;
+            InvitedCharacterName = invitedCharacterName;
             Inviter         = inviter;
             Type            = type;
-        }
-
-        /// <summary>
-        /// Send the invite to the invited <see cref="TargetPlayer"/>
-        /// </summary>
-        public void SendInvite()
-        {
-            TargetPlayer.Session.EnqueueMessageEncrypted(new ServerGroupInviteReceived
-            {
-                GroupId = Group.Id,
-                InviterIndex = Inviter.GroupIndex,
-                LeaderIndex = Group.Leader.GroupIndex,
-                Members = Group.BuildGroupMembers()
-            });
         }
     }
 }
