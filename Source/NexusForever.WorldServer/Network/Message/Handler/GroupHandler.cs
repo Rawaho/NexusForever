@@ -181,10 +181,6 @@ namespace NexusForever.WorldServer.Network.Message.Handler
                 return;
             }
 
-            WorldSession leaderSession = joinedGroup.Leader.Player.Session;
-            if (leaderSession == null)
-                return;
-
             // Check if the targeted player declined the group invite.
             if (response.Result == GroupInviteResult.Declined)
             {

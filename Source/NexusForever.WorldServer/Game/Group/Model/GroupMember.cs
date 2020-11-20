@@ -1,4 +1,5 @@
 ﻿using NexusForever.Shared.Network.Message;
+using NexusForever.WorldServer.Game.CharacterCache;
 using NexusForever.WorldServer.Game.Entity;
 using NexusForever.WorldServer.Game.Group.Static;
 using NexusForever.WorldServer.Network.Message.Model;
@@ -11,7 +12,7 @@ namespace NexusForever.WorldServer.Game.Group.Model
     {
         public ulong Id { get; }
         public Group Group { get; }
-        public Player Player { get; }
+        public ulong CharacterId { get; set; }
         public ushort ZoneId { get; set; }
         public uint GroupIndex { get { return (uint)Group.Members.IndexOf(this); } }
 
@@ -29,7 +30,7 @@ namespace NexusForever.WorldServer.Game.Group.Model
         {
             Id      = id;
             Group   = group;
-            Player  = player;
+            CharacterId = player.CharacterId;
             ZoneId  = (ushort)player.Zone.Id;
             AreFlagsSet = false;
         }
@@ -112,18 +113,25 @@ namespace NexusForever.WorldServer.Game.Group.Model
         /// <summary>
         /// Build the <see cref="NetworkGroupMember"/>.
         /// </summary>
-        public NetworkGroupMember Build() => Player.BuildGroupMember();
+        public NetworkGroupMember Build()
+        {
+            ICharacter character = CharacterManager.Instance.GetCharacterInfo(CharacterId);
+            if (!(character is Player targetPlayer))
+                return null;
+
+            return targetPlayer.BuildGroupMember();
+        }
 
         /// <summary>
         /// Build the <see cref="GroupMemberInfo"/> model.
         /// </summary>
         public GroupMemberInfo BuildMemberInfo()
-        {
+        { 
             return new GroupMemberInfo
             {
                 MemberIdentity  = new TargetPlayerIdentity
                 {
-                    CharacterId = Player.CharacterId,
+                    CharacterId = CharacterId,
                     RealmId     = WorldServer.RealmId
                 },
                 Flags           = Flags,
@@ -137,9 +145,13 @@ namespace NexusForever.WorldServer.Game.Group.Model
         /// </summary>
         public ServerEntityGroupAssociation BuildGroupAssociation()
         {
+            ICharacter character = CharacterManager.Instance.GetCharacterInfo(CharacterId);
+            if (!(character is Player targetPlayer))
+                return null;
+
             return new ServerEntityGroupAssociation
             {
-                UnitId  = Player.Guid,
+                UnitId  = targetPlayer.Guid,
                 GroupId = Group.Id
             };
         }
@@ -149,23 +161,27 @@ namespace NexusForever.WorldServer.Game.Group.Model
         /// </summary>
         public ServerGroupMemberStatUpdate BuildGroupStatUpdate()
         {
+            ICharacter character = CharacterManager.Instance.GetCharacterInfo(CharacterId);
+            if (!(character is Player targetPlayer))
+                return null;
+
             return new ServerGroupMemberStatUpdate
             {
                 GroupId             = Group.Id,
                 GroupMemberId       = (ushort)Id,
                 TargetPlayer        = new TargetPlayerIdentity
                 {
-                    CharacterId     = Player.CharacterId,
+                    CharacterId     = CharacterId,
                     RealmId         = WorldServer.RealmId
                 },
-                Level               = (byte)Player.Level,
-                EffectiveLevel      = (byte)Player.Level,
-                Health              = (ushort)Player.Health,
-                HealthMax           = (ushort)Player.Health,
-                Shield              = (ushort)Player.Shield,
-                ShieldMax           = (ushort)Player.Shield,
-                InterruptArmor      = (ushort)Player.InterruptArmor,
-                InterruptArmorMax   = (ushort)Player.InterruptArmor
+                Level               = (byte)targetPlayer.Level,
+                EffectiveLevel      = (byte)targetPlayer.Level,
+                Health              = (ushort)targetPlayer.Health,
+                HealthMax           = (ushort)targetPlayer.Health,
+                Shield              = (ushort)targetPlayer.Shield,
+                ShieldMax           = (ushort)targetPlayer.Shield,
+                InterruptArmor      = (ushort)targetPlayer.InterruptArmor,
+                InterruptArmorMax   = (ushort)targetPlayer.InterruptArmor
             };
         }
     }

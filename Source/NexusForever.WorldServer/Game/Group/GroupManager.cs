@@ -38,7 +38,7 @@ namespace NexusForever.WorldServer.Game.Group
                 return;
 
             groups.Remove(group.Id);
-            groupOwner.Remove(group.Leader.Player.CharacterId);
+            groupOwner.Remove(group.Leader.CharacterId);
         }
 
         /// <summary>
