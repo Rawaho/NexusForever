@@ -823,6 +823,11 @@ namespace NexusForever.Database.Auth.Migrations
                         {
                             Id = 10000u,
                             Name = "Other: InstantLogout"
+                        },
+                        new
+                        {
+                            Id = 10001u,
+                            Name = "Other: Signature"
                         });
                 });
 
