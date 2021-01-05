@@ -22,17 +22,17 @@ namespace NexusForever.WorldServer.Game.Group
     {
         private readonly Dictionary<ulong, GroupInvite> invites = new Dictionary<ulong, GroupInvite>();
 
-        private Dictionary<ulong, GroupMember> MembershipsByCharacterID = new Dictionary<ulong, GroupMember>();
-        private List<GroupMember> Members = new List<GroupMember>();
+        private Dictionary<ulong, GroupMember> membershipsByCharacterID = new Dictionary<ulong, GroupMember>();
+        private List<GroupMember> members = new List<GroupMember>();
 
-        public int MemberCount { get => Members.Count; }
+        public int MemberCount { get => members.Count; }
 
-        private Model.GroupMarkerInfo MarkerInfo;
+        private Model.GroupMarkerInfo markerInfo;
 
-        private LootRule LootRule = LootRule.NeedBeforeGreed;
-        private LootRule LootRuleThreshold = LootRule.RoundRobin;
-        private HarvestLootRule LootRuleHarvest = HarvestLootRule.FirstTagger;
-        private LootThreshold LootThreshold = LootThreshold.Good;
+        private LootRule lootRule = LootRule.NeedBeforeGreed;
+        private LootRule lootRuleThreshold = LootRule.RoundRobin;
+        private HarvestLootRule lootRuleHarvest = HarvestLootRule.FirstTagger;
+        private LootThreshold lootThreshold = LootThreshold.Good;
 
         /// <summary>
         /// Id for the current <see cref="Group"/>
@@ -62,7 +62,7 @@ namespace NexusForever.WorldServer.Game.Group
         /// <summary>
         /// True if the Group is full.
         /// </summary>
-        public bool IsFull { get => Members.Count >= MaxGroupSize; }
+        public bool IsFull { get => members.Count >= MaxGroupSize; }
 
         private bool isNewGroup { get; set; }
           
@@ -75,7 +75,7 @@ namespace NexusForever.WorldServer.Game.Group
             Id     = id;
             Flags |= GroupFlags.OpenWorld;
             Leader = CreateMember(leader);
-            MarkerInfo = new Model.GroupMarkerInfo(this);
+            markerInfo = new Model.GroupMarkerInfo(this);
 
             SetGroupSize();
         }
@@ -98,8 +98,8 @@ namespace NexusForever.WorldServer.Game.Group
         public GroupMember CreateMember(Player player)
         {
             GroupMember member = new GroupMember(NextMemberId(), this, player);
-            Members.Add(member);
-            MembershipsByCharacterID.Add(player.CharacterId, member);
+            members.Add(member);
+            membershipsByCharacterID.Add(player.CharacterId, member);
 
             player.GroupMember = member;
             return member;
@@ -123,8 +123,8 @@ namespace NexusForever.WorldServer.Game.Group
         /// </summary>
         public ulong NextMemberId()
         {
-            if (Members.Count > 0)
-                return Members.Last().Id + 1UL;
+            if (members.Count > 0)
+                return members.Last().Id + 1UL;
             else
                 return 1;
         }
@@ -135,7 +135,7 @@ namespace NexusForever.WorldServer.Game.Group
         public List<NetworkGroupMember> BuildGroupMembers()
         {
             List<NetworkGroupMember> memberList = new List<NetworkGroupMember>();
-            foreach (var member in Members)
+            foreach (var member in members)
             {
                 NetworkGroupMember groupMember = member.Build();
                 groupMember.GroupMemberId = (ushort)member.Id;
@@ -152,7 +152,7 @@ namespace NexusForever.WorldServer.Game.Group
         {
             List<GroupMemberInfo> memberList = new List<GroupMemberInfo>(); 
 
-            foreach (var member in Members)
+            foreach (var member in members)
                 memberList.Add(member.BuildMemberInfo());
 
             return memberList;
@@ -164,7 +164,7 @@ namespace NexusForever.WorldServer.Game.Group
         /// </summary>
         public void BroadcastPacket(IWritable message)
         {
-            foreach (var member in Members)
+            foreach (var member in members)
             {
                 // If the player is not online - can't give them the message.
                 if (!GetPlayerByCharacterId(member.CharacterId, out Player memberPlayer))
@@ -387,7 +387,7 @@ namespace NexusForever.WorldServer.Game.Group
         public bool CanJoinGroup(out GroupResult result)
         {
             // Member count is over the max group member count.
-            if (Members.Count >= MaxGroupSize)
+            if (members.Count >= MaxGroupSize)
             {
                 result = GroupResult.Full;
                 return false;
@@ -413,7 +413,7 @@ namespace NexusForever.WorldServer.Game.Group
             {
                 isNewGroup = false; 
 
-                foreach (var member in Members)
+                foreach (var member in members)
                 {
                     if (!this.GetPlayerByCharacterId(member.CharacterId, out Player player))
                         continue;
@@ -460,7 +460,7 @@ namespace NexusForever.WorldServer.Game.Group
         /// </summary>
         public void KickMember(TargetPlayerIdentity target)
         {
-            if (Members.Count == 2) {
+            if (members.Count == 2) {
                 Disband();
                 return;
             }
@@ -473,8 +473,8 @@ namespace NexusForever.WorldServer.Game.Group
                 return;
 
             GetPlayerByCharacterId(kickedMember.CharacterId, out Player kickedPlayer); 
-            Members.Remove(kickedMember);
-            MembershipsByCharacterID.Remove(kickedMember.CharacterId);
+            members.Remove(kickedMember);
+            membershipsByCharacterID.Remove(kickedMember.CharacterId);
             
 
             // Tell the player they are no longer in a group.
@@ -503,12 +503,12 @@ namespace NexusForever.WorldServer.Game.Group
         /// <param name="memberToRemove"></param>
         public void RemoveMember(GroupMember memberToRemove)
         {
-            if (!this.Members.Contains(memberToRemove))
+            if (!this.members.Contains(memberToRemove))
                 return;
 
             GetPlayerByCharacterId(memberToRemove.CharacterId, out Player removedPlayer);
-            Members.Remove(memberToRemove);
-            MembershipsByCharacterID.Remove(memberToRemove.CharacterId);
+            members.Remove(memberToRemove);
+            membershipsByCharacterID.Remove(memberToRemove.CharacterId);
 
             if (removedPlayer != null) { 
                 removedPlayer.GroupMember = null;
@@ -536,7 +536,7 @@ namespace NexusForever.WorldServer.Game.Group
         /// </summary>
         public void Disband()
         {
-            foreach (GroupMember member in Members)
+            foreach (GroupMember member in members)
             {
                 if (!GetPlayerByCharacterId(member.CharacterId, out Player player))
                     continue;
@@ -590,7 +590,7 @@ namespace NexusForever.WorldServer.Game.Group
         /// </summary>
         public void PrepareForReadyCheck()
         { 
-            foreach (GroupMember member in Members)
+            foreach (GroupMember member in members)
             {
                 member.PrepareForReadyCheck();
                 BroadcastPacket(new ServerGroupMemberFlagsChanged
@@ -633,7 +633,7 @@ namespace NexusForever.WorldServer.Game.Group
             if (!updater.CanUpdateFlags(changedFlag, member))
                 return;
       
-            foreach (GroupMember groupMember in Members) {
+            foreach (GroupMember groupMember in members) {
                 if (groupMember.CharacterId == target.CharacterId)
                     break; 
             }
@@ -684,10 +684,10 @@ namespace NexusForever.WorldServer.Game.Group
         /// </summary>
         public void UpdateLootRules(LootRule lootRulesUnderThreshold, LootRule lootRulesThresholdAndOver, LootThreshold lootThreshold, HarvestLootRule harvestLootRule)
         {
-            LootRule = lootRulesUnderThreshold;
-            LootRuleThreshold = lootRulesThresholdAndOver;
-            LootThreshold = lootThreshold;
-            LootRuleHarvest = harvestLootRule;
+            lootRule = lootRulesUnderThreshold;
+            lootRuleThreshold = lootRulesThresholdAndOver;
+            this.lootThreshold = lootThreshold;
+            lootRuleHarvest = harvestLootRule;
 
             BroadcastPacket(new ServerGroupLootRulesChange
             {
@@ -705,7 +705,7 @@ namespace NexusForever.WorldServer.Game.Group
         /// </summary>
         public void MarkUnit(uint unitId, GroupMarker marker)
         {
-            MarkerInfo.MarkTarget(unitId, marker);
+            markerInfo.MarkTarget(unitId, marker);
         }
 
         /// <summary>
@@ -715,7 +715,7 @@ namespace NexusForever.WorldServer.Game.Group
         public void Promote(TargetPlayerIdentity newLeader)
         {
             GroupMember memberToPromote = Leader; 
-            foreach(GroupMember member in Members)
+            foreach(GroupMember member in members)
             {
                 memberToPromote = member; 
                 if (member.CharacterId == newLeader.CharacterId)
@@ -736,10 +736,10 @@ namespace NexusForever.WorldServer.Game.Group
         /// </summary>
         public GroupMember FindMember(TargetPlayerIdentity target)
         {
-            if (!MembershipsByCharacterID.ContainsKey(target.CharacterId))
+            if (!membershipsByCharacterID.ContainsKey(target.CharacterId))
                 return null;
 
-            return MembershipsByCharacterID[target.CharacterId];
+            return membershipsByCharacterID[target.CharacterId];
         }
 
         /// <summary>
@@ -750,7 +750,7 @@ namespace NexusForever.WorldServer.Game.Group
             if (groupMember.Group.Id != this.Id)
                 throw new InvalidOperationException("Member does not belong to this group.");
 
-            return (uint)this.Members.IndexOf(groupMember);
+            return (uint)this.members.IndexOf(groupMember);
         }
 
         private void SetGroupSize()
@@ -775,14 +775,14 @@ namespace NexusForever.WorldServer.Game.Group
                     CharacterId     = Leader.CharacterId,
                     RealmId         = WorldServer.RealmId
                 },
-                LootRule            = LootRule,
-                LootRuleThreshold   = LootRuleThreshold,
-                LootRuleHarvest     = LootRuleHarvest,
-                LootThreshold       = LootThreshold,
+                LootRule            = lootRule,
+                LootRuleThreshold   = lootRuleThreshold,
+                LootRuleHarvest     = lootRuleHarvest,
+                LootThreshold       = lootThreshold,
                 MaxGroupSize        = MaxGroupSize,
                 MemberInfos         = BuildMembersInfo(),
                 RealmId             = WorldServer.RealmId,
-                MarkerInfo          = MarkerInfo.Build()
+                MarkerInfo          = markerInfo.Build()
             };
         }
 

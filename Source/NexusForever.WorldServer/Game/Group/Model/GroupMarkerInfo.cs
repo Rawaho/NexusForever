@@ -9,16 +9,16 @@ namespace NexusForever.WorldServer.Game.Group.Model
 {
     public class GroupMarkerInfo: IBuildable<Network.Message.Model.Shared.GroupMarkerInfo>
     {
-        private Dictionary<GroupMarker, uint> UsedGroupMarkers;
-        private Dictionary<uint, GroupMarker> UnitIdUsedMarkers;
+        private Dictionary<GroupMarker, uint> usedGroupMarkers;
+        private Dictionary<uint, GroupMarker> unitIdUsedMarkers;
 
         public Group Group { get; private set; }
          
         public GroupMarkerInfo(Group group)
         {
             Group = group;
-            UsedGroupMarkers = new Dictionary<GroupMarker, uint>();
-            UnitIdUsedMarkers = new Dictionary<uint, GroupMarker>();
+            usedGroupMarkers = new Dictionary<GroupMarker, uint>();
+            unitIdUsedMarkers = new Dictionary<uint, GroupMarker>();
         }
 
         public void MarkTarget(uint unitId, GroupMarker marker)
@@ -49,32 +49,32 @@ namespace NexusForever.WorldServer.Game.Group.Model
         }
         private void Mark(uint unitId, GroupMarker marker)
         {
-            UsedGroupMarkers.Add(marker, unitId);
-            UnitIdUsedMarkers.Add(unitId, marker);
+            usedGroupMarkers.Add(marker, unitId);
+            unitIdUsedMarkers.Add(unitId, marker);
 
             BroadcastMarkEvent(unitId, marker);
         }
         
         private void Unmark(GroupMarker marker)
         {
-            if (!UsedGroupMarkers.ContainsKey(marker))
+            if (!usedGroupMarkers.ContainsKey(marker))
                 return;
 
-            UsedGroupMarkers.TryGetValue(marker, out uint unitId);
-            UsedGroupMarkers.Remove(marker);
-            UnitIdUsedMarkers.Remove(unitId);
+            usedGroupMarkers.TryGetValue(marker, out uint unitId);
+            usedGroupMarkers.Remove(marker);
+            unitIdUsedMarkers.Remove(unitId);
 
             BroadcastMarkEvent(0, marker);
         }
          
         private void Unmark(uint unitId)
         {
-            if (!UnitIdUsedMarkers.ContainsKey(unitId))
+            if (!unitIdUsedMarkers.ContainsKey(unitId))
                 return;
 
-            UnitIdUsedMarkers.TryGetValue(unitId, out GroupMarker marker);
-            UsedGroupMarkers.Remove(marker);
-            UnitIdUsedMarkers.Remove(unitId);
+            unitIdUsedMarkers.TryGetValue(unitId, out GroupMarker marker);
+            usedGroupMarkers.Remove(marker);
+            unitIdUsedMarkers.Remove(unitId);
 
             BroadcastMarkEvent(0, marker);
         }
@@ -83,7 +83,7 @@ namespace NexusForever.WorldServer.Game.Group.Model
         {
             return new Network.Message.Model.Shared.GroupMarkerInfo
             {
-                Markers = UsedGroupMarkers.Select(kvp => new MarkerInfo() { Marker = kvp.Key, UnitId = kvp.Value }).ToArray()
+                Markers = usedGroupMarkers.Select(kvp => new MarkerInfo() { Marker = kvp.Key, UnitId = kvp.Value }).ToArray()
             };
         }
     }
