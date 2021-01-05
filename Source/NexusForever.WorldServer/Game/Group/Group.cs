@@ -411,8 +411,7 @@ namespace NexusForever.WorldServer.Game.Group
         {
             if (isNewGroup)
             {
-                isNewGroup = false;
-                positionUpdateTickTimer = new UpdateTimer(1d);
+                isNewGroup = false; 
 
                 foreach (var member in Members)
                 {
