@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore.Internal;
 using NexusForever.Shared;
+using NexusForever.Shared.Game;
 using NexusForever.Shared.Network.Message;
 using NexusForever.WorldServer.Game.CharacterCache;
 using NexusForever.WorldServer.Game.Entity;
@@ -8,6 +9,7 @@ using NexusForever.WorldServer.Game.Group.Static;
 using NexusForever.WorldServer.Network.Message.Handler;
 using NexusForever.WorldServer.Network.Message.Model;
 using NexusForever.WorldServer.Network.Message.Model.Shared;
+using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Linq; 
@@ -19,7 +21,11 @@ namespace NexusForever.WorldServer.Game.Group
     public class Group : IUpdate, IBuildable<GroupInfo>
     {
         private readonly Dictionary<ulong, GroupInvite> invites = new Dictionary<ulong, GroupInvite>();
-        public List<GroupMember> Members = new List<GroupMember>();
+
+        private Dictionary<ulong, GroupMember> MembershipsByCharacterID = new Dictionary<ulong, GroupMember>();
+        private List<GroupMember> Members = new List<GroupMember>();
+
+        public int MemberCount { get => Members.Count; }
 
         private Model.GroupMarkerInfo MarkerInfo;
 
@@ -93,6 +99,7 @@ namespace NexusForever.WorldServer.Game.Group
         {
             GroupMember member = new GroupMember(NextMemberId(), this, player);
             Members.Add(member);
+            MembershipsByCharacterID.Add(player.CharacterId, member);
 
             player.GroupMember = member;
             return member;
@@ -159,6 +166,7 @@ namespace NexusForever.WorldServer.Game.Group
         {
             foreach (var member in Members)
             {
+                // If the player is not online - can't give them the message.
                 if (!GetPlayerByCharacterId(member.CharacterId, out Player memberPlayer))
                     continue;
 
@@ -201,18 +209,16 @@ namespace NexusForever.WorldServer.Game.Group
         {
             if (!invites.ContainsKey(invite.InviteId))
                 return;
-            
-            if (!GetPlayerByCharacterId(invite.InvitedCharacterId, out Player inviteTarget))
-                return;
-
+                  
             RemoveInvite(invite);
             switch (invite.Type)
             {
                 case GroupInviteType.Invite:
-                    if(GetPlayerByCharacterId(Leader.CharacterId, out Player leader))
-                        GroupHandler.SendGroupResult(leader.Session, GroupResult.ExpiredInviter, Id, inviteTarget.Name);
+                    if (GetPlayerByCharacterId(Leader.CharacterId, out Player leader))
+                        GroupHandler.SendGroupResult(leader.Session, GroupResult.ExpiredInviter, Id, invite.InvitedCharacterName);
 
-                    GroupHandler.SendGroupResult(inviteTarget.Session, GroupResult.ExpiredInvitee, Id, inviteTarget.Name);
+                    if(GetPlayerByCharacterId(invite.InvitedCharacterId, out Player invited))
+                        GroupHandler.SendGroupResult(invited.Session, GroupResult.ExpiredInvitee, Id, invite.InvitedCharacterName);
                     break;
                 case GroupInviteType.Request:
                 case GroupInviteType.Referral:
@@ -241,6 +247,7 @@ namespace NexusForever.WorldServer.Game.Group
             if (!invites.ContainsKey(invite.InviteId))
                 return;
 
+            // If the person who accepted the invite is not online - how TF did they accept the invite?
             if (!GetPlayerByCharacterId(invite.InvitedCharacterId, out Player targetPlayer)) 
                 return;
 
@@ -294,31 +301,31 @@ namespace NexusForever.WorldServer.Game.Group
             if (!invites.ContainsKey(invite.InviteId))
                 return;
 
-            GetPlayerByCharacterId(invite.InvitedCharacterId, out Player targetPlayer);
-            if (targetPlayer == null)
-                return;
-
             RemoveInvite(invite); 
+            GetPlayerByCharacterId(invite.InvitedCharacterId, out Player targetPlayer); // presumable to decline the invite the player has to be online. Expire is handled seperatly.
             GetPlayerByCharacterId(invite.InvitedCharacterId, out Player leader);
             
             switch (invite.Type)
             {
                 case GroupInviteType.Invite:
-                    if(leader != null)
-                        GroupHandler.SendGroupResult(leader.Session, GroupResult.Declined, Id, targetPlayer.Name);
+                    if (leader != null)
+                        GroupHandler.SendGroupResult(leader.Session, GroupResult.Declined, Id, invite.InvitedCharacterName);
 
                     break;
+
                 case GroupInviteType.Request:
                     targetPlayer.Session.EnqueueMessageEncrypted(new ServerGroupRequestJoinResult
                     {
                         GroupId = Id,
                         IsJoin = false,
-                        Name = leader.Name,
+                        Name = leader.Name, //TODO: What if the Leader is offline?
                         Result = GroupResult.Declined
                     });
-                    //GroupHandler.SendGroupResult(invite.TargetPlayer.Session, GroupResult.Declined, Id, Leader.Player.Name);
+                    //GroupHandler.SendGroupResult(invite.TargetPlayer.Session, GroupResult.Declined, Id, Leader.Player.Name); //TODO: Does this need to be implemented?
                     break;
+
                 case GroupInviteType.Referral:
+                    //TODO: Does this need to be implemented?
                     break;
             } 
         }
@@ -350,10 +357,12 @@ namespace NexusForever.WorldServer.Game.Group
             if (!invites.ContainsKey(invite.InviteId))
                 return;
 
+            // Remnove the pending invite so it doesnt get re-sent when somone comes online.
+            invites.Remove(invite.InviteId);
             if (!GetPlayerByCharacterId(invite.InvitedCharacterId, out Player targetPlayer)) 
                 return;
 
-            invites.Remove(invite.InviteId);
+            // If i cant get the player here, there is no player object to remove the invite from.
             targetPlayer.GroupInvite = null;
         }
 
@@ -403,6 +412,7 @@ namespace NexusForever.WorldServer.Game.Group
             if (isNewGroup)
             {
                 isNewGroup = false;
+                positionUpdateTickTimer = new UpdateTimer(1d);
 
                 foreach (var member in Members)
                 {
@@ -451,7 +461,7 @@ namespace NexusForever.WorldServer.Game.Group
         /// </summary>
         public void KickMember(TargetPlayerIdentity target)
         {
-            if (this.Members.Count == 2) {
+            if (Members.Count == 2) {
                 Disband();
                 return;
             }
@@ -463,10 +473,10 @@ namespace NexusForever.WorldServer.Game.Group
             if (kickedMember.IsPartyLeader)
                 return;
 
-            if (!Members.Remove(kickedMember))
-                return;
-
-            GetPlayerByCharacterId(kickedMember.CharacterId, out Player kickedPlayer);
+            GetPlayerByCharacterId(kickedMember.CharacterId, out Player kickedPlayer); 
+            Members.Remove(kickedMember);
+            MembershipsByCharacterID.Remove(kickedMember.CharacterId);
+            
 
             // Tell the player they are no longer in a group.
             if (kickedPlayer != null)
@@ -477,7 +487,7 @@ namespace NexusForever.WorldServer.Game.Group
                     GroupId = Id,
                     Reason = RemoveReason.Kicked
                 });
-            } //TODO: What if the Kicked player is offline? 
+            }
              
             // Tell Other memebers of the group this player has been kicked.
             BroadcastPacket(new ServerGroupRemove
@@ -499,6 +509,7 @@ namespace NexusForever.WorldServer.Game.Group
 
             GetPlayerByCharacterId(memberToRemove.CharacterId, out Player removedPlayer);
             Members.Remove(memberToRemove);
+            MembershipsByCharacterID.Remove(memberToRemove.CharacterId);
 
             if (removedPlayer != null) { 
                 removedPlayer.GroupMember = null;
@@ -726,15 +737,21 @@ namespace NexusForever.WorldServer.Game.Group
         /// </summary>
         public GroupMember FindMember(TargetPlayerIdentity target)
         {
-            foreach (GroupMember member in Members)
-            {
-                if (member.CharacterId != target.CharacterId)
-                    continue;
+            if (!MembershipsByCharacterID.ContainsKey(target.CharacterId))
+                return null;
 
-                return member;
-            }
+            return MembershipsByCharacterID[target.CharacterId];
+        }
 
-            return null;
+        /// <summary>
+        /// Gets the Index of The target <see cref="GroupMember"/>.
+        /// </summary>
+        public uint GetMemberIndex(GroupMember groupMember)
+        {
+            if (groupMember.Group.Id != this.Id)
+                throw new InvalidOperationException("Member does not belong to this group.");
+
+            return (uint)this.Members.IndexOf(groupMember);
         }
 
         private void SetGroupSize()
@@ -771,17 +788,30 @@ namespace NexusForever.WorldServer.Game.Group
         }
 
 
+        /// <summary>
+        /// Gets an instance of a <see cref="ICharacter"/> representing the player.
+        /// </summary> 
+        private void GetCharacterInfoByCharacterId(ulong characterId, out ICharacter targetPlayer)
+        {
+            ICharacter character = CharacterManager.Instance.GetCharacterInfo(characterId);
+            targetPlayer = character;
+        }
+
+        /// <summary>
+        /// Gets the <see cref="Player"/> object representing the character Id if the player is online.
+        /// </summary>>
+        /// <returns>A <see cref="Player"/> object if the player is online, null otherwise.</returns>
         private bool GetPlayerByCharacterId(ulong characterId, out Player targetPlayer)
         {
             ICharacter character = CharacterManager.Instance.GetCharacterInfo(characterId);
-            if (!(character is Player player))
-            {
-                targetPlayer = null;
-                return false;
+            if (character is Player player) {
+                targetPlayer = player;
+                return true;
             }
 
-            targetPlayer = player;
-            return true;
+            targetPlayer = null;
+            return false;
         }
+         
     }
 }

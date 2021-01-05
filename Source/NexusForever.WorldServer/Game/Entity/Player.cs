@@ -19,6 +19,7 @@ using NexusForever.WorldServer.Game.CharacterCache;
 using NexusForever.WorldServer.Game.Entity.Network;
 using NexusForever.WorldServer.Game.Entity.Network.Model;
 using NexusForever.WorldServer.Game.Entity.Static;
+using NexusForever.WorldServer.Game.Group;
 using NexusForever.WorldServer.Game.Guild;
 using NexusForever.WorldServer.Game.Guild.Static;
 using NexusForever.WorldServer.Game.Map;
@@ -589,6 +590,20 @@ namespace NexusForever.WorldServer.Game.Entity
             QuestManager.SendInitialPackets();
             AchievementManager.SendInitialPackets();
             Session.EntitlementManager.SendInitialPackets();
+
+            if (GroupManager.Instance.FindGroupMembershipForPlayer(this, out Group.Model.GroupMember membership))
+            {
+                GroupMember = membership;
+                Session.EnqueueMessageEncrypted(new ServerGroupJoin
+                {
+                    TargetPlayer = new TargetPlayerIdentity
+                    {
+                        CharacterId = CharacterId,
+                        RealmId = WorldServer.RealmId
+                    },
+                    GroupInfo = membership.Group.Build()
+                });
+            }
 
             Session.EnqueueMessageEncrypted(new ServerPlayerInnate
             {

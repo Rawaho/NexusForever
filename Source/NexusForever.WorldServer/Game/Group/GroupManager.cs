@@ -1,5 +1,6 @@
 ﻿using NexusForever.Shared;
 using NexusForever.WorldServer.Game.Entity;
+using NexusForever.WorldServer.Game.Group.Model;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -61,6 +62,19 @@ namespace NexusForever.WorldServer.Game.Group
                 return null;
 
             return group;
+        }
+
+        public bool FindGroupMembershipForPlayer(Player player, out GroupMember membership)
+        {
+            foreach(Group group in groups.Values)
+            {
+                membership = group.FindMember(new Network.Message.Model.Shared.TargetPlayerIdentity() { CharacterId = player.CharacterId, RealmId = WorldServer.RealmId }); 
+                if (membership != null)
+                    return true;
+            }
+
+            membership = null;
+            return false;
         }
 
         public void Update(double lastTick)

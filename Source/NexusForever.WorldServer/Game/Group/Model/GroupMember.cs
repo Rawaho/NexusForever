@@ -1,4 +1,4 @@
-﻿using NexusForever.Shared.Network.Message;
+using NexusForever.Shared.Network.Message;
 using NexusForever.WorldServer.Game.CharacterCache;
 using NexusForever.WorldServer.Game.Entity;
 using NexusForever.WorldServer.Game.Group.Static;
@@ -14,7 +14,7 @@ namespace NexusForever.WorldServer.Game.Group.Model
         public Group Group { get; }
         public ulong CharacterId { get; set; }
         public ushort ZoneId { get; set; }
-        public uint GroupIndex { get { return (uint)Group.Members.IndexOf(this); } }
+        public uint GroupIndex { get { return Group.GetMemberIndex(this); } }
 
         private GroupMemberInfoFlags flags;
 

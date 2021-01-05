@@ -144,11 +144,11 @@ namespace NexusForever.WorldServer.Network.Message.Handler
             }
             else
             {
-                Group group = GroupManager.Instance.GetGroupByLeader(targetedPlayer);
-                if (group == null) //target player is not the leader of the group, so this acts as a referral 
-                    group.ReferMember(session.Player.GroupMember, targetedPlayer); 
-                else  // /Join was on the leader - so just do a std Join request.
-                    group.HandleJoinRequest(session.Player);             
+                Group group = targetedPlayer.GroupMember.Group;
+                if (targetedPlayer.GroupMember.IsPartyLeader)  // /Join was on the leader - so just do a std Join request.
+                    group.HandleJoinRequest(session.Player);
+                else  //target player is not the leader of the group, so this acts as a referral 
+                    group.ReferMember(session.Player.GroupMember, targetedPlayer);
             }
         }
 
@@ -213,7 +213,7 @@ namespace NexusForever.WorldServer.Network.Message.Handler
 
             // I never want to leave a group with only 1 member; So as with the Leave if there would be 1 member left after this operation
             // Just .Disband() the group.
-            if (group.Members.Count == 2)
+            if (group.MemberCount == 2)
                 group.Disband();
             else
                 group.KickMember(kick.TargetedPlayer);
@@ -233,7 +233,7 @@ namespace NexusForever.WorldServer.Network.Message.Handler
 
             // I never want to leave a group with only 1 member; So as with the Kick if there would be 1 member left after this operation
             // Just .Disband() the group.
-            if (leave.ShouldDisband || group.Members.Count == 2)
+            if (leave.ShouldDisband || group.MemberCount == 2)
             {
                 group.Disband();
                 return;
