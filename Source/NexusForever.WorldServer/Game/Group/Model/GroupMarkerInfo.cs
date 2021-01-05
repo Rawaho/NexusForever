@@ -10,6 +10,7 @@ namespace NexusForever.WorldServer.Game.Group.Model
     public class GroupMarkerInfo: IBuildable<Network.Message.Model.Shared.GroupMarkerInfo>
     {
         private Dictionary<GroupMarker, uint> UsedGroupMarkers;
+        private Dictionary<uint, GroupMarker> UnitIdUsedMarkers;
 
         public Group Group { get; private set; }
          
@@ -17,6 +18,7 @@ namespace NexusForever.WorldServer.Game.Group.Model
         {
             Group = group;
             UsedGroupMarkers = new Dictionary<GroupMarker, uint>();
+            UnitIdUsedMarkers = new Dictionary<uint, GroupMarker>();
         }
 
         public void MarkTarget(uint unitId, GroupMarker marker)
@@ -25,11 +27,12 @@ namespace NexusForever.WorldServer.Game.Group.Model
             if (unitId > 0)
             {
                 Unmark(marker);
-                UsedGroupMarkers.Add(marker, unitId);
+                Unmark(unitId);
+                Mark(unitId, marker);          
             }
             else
             {
-                UsedGroupMarkers.Remove(marker);
+                Unmark(marker);
             }
 
             BroadcastMarkEvent(unitId, marker);
@@ -44,12 +47,36 @@ namespace NexusForever.WorldServer.Game.Group.Model
                 UnitId = unitID
             });
         }
+        private void Mark(uint unitId, GroupMarker marker)
+        {
+            UsedGroupMarkers.Add(marker, unitId);
+            UnitIdUsedMarkers.Add(unitId, marker);
+
+            BroadcastMarkEvent(unitId, marker);
+        }
+        
         private void Unmark(GroupMarker marker)
         {
             if (!UsedGroupMarkers.ContainsKey(marker))
                 return;
 
-            UsedGroupMarkers.Remove(marker); 
+            UsedGroupMarkers.TryGetValue(marker, out uint unitId);
+            UsedGroupMarkers.Remove(marker);
+            UnitIdUsedMarkers.Remove(unitId);
+
+            BroadcastMarkEvent(0, marker);
+        }
+         
+        private void Unmark(uint unitId)
+        {
+            if (!UnitIdUsedMarkers.ContainsKey(unitId))
+                return;
+
+            UnitIdUsedMarkers.TryGetValue(unitId, out GroupMarker marker);
+            UsedGroupMarkers.Remove(marker);
+            UnitIdUsedMarkers.Remove(unitId);
+
+            BroadcastMarkEvent(0, marker);
         }
 
         public Network.Message.Model.Shared.GroupMarkerInfo Build()
