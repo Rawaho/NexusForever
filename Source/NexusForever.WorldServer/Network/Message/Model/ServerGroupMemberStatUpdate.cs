@@ -31,8 +31,8 @@ namespace NexusForever.WorldServer.Network.Message.Model
         public ushort HealingAbsorb { get; set; }
         public ushort HealingAbsorbMax { get; set; }
 
-        public uint Unk3 { get; set; }
-        public uint Unk4 { get; set; }
+        public uint PhaseFlags1 { get; set; } = 1;
+        public uint PhaseFlags2 { get; set; } = 1;
         public byte Unk5 { get; set; }
 
         public void Write(GamePacketWriter writer)
@@ -65,8 +65,8 @@ namespace NexusForever.WorldServer.Network.Message.Model
             writer.Write(HealingAbsorb);
             writer.Write(HealingAbsorbMax);
 
-            writer.Write(Unk3);
-            writer.Write(Unk4);
+            writer.Write(PhaseFlags1);
+            writer.Write(PhaseFlags2);
             writer.Write(Unk5, 3);
         }
     }

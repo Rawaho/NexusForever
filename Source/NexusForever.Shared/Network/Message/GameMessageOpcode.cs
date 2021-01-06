@@ -67,6 +67,7 @@ namespace NexusForever.Shared.Network.Message
         ClientNonSpellActionSetChanges  = 0x016A,
         ServerShowActionBar             = 0x016C,
         ClientInnateChange              = 0x016F,
+        ServerUpdatePhase               = 0x0171,
         ClientChangeActiveActionSet     = 0x0174,
         ServerChangeActiveActionSet     = 0x0175,
         ClientToggleWeapons             = 0x0177,

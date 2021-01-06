@@ -609,6 +609,7 @@ namespace NexusForever.WorldServer.Game.Entity
             {
                 InnateIndex = InnateIndex
             });
+            Session.EnqueueMessage(new ServerUpdatePhase());
         }
 
         public ItemProficiency GetItemProficiencies()

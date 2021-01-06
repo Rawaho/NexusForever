@@ -429,7 +429,8 @@ namespace NexusForever.WorldServer.Game.Group
                     };
 
                     player.Session.EnqueueMessageEncrypted(groupJoinPacket);
-                    // BroadcastPacket(member.BuildGroupStatUpdate());
+                    foreach(GroupMember member2 in members)
+                        player.Session.EnqueueMessageEncrypted(member2.BuildGroupStatUpdate());
                 }
             }
             else
@@ -452,6 +453,9 @@ namespace NexusForever.WorldServer.Game.Group
                     GroupId = Id,
                     AddedMemberInfo = addedMember.BuildMemberInfo()
                 });
+
+                foreach (GroupMember member2 in members)
+                    addedPlayer.Session.EnqueueMessageEncrypted(member2.BuildGroupStatUpdate());
             }
         }
          
