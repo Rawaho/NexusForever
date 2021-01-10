@@ -1,33 +1,31 @@
-﻿using System.Collections.Generic;
-using System.IO;
-using NexusForever.Shared;
+﻿using NexusForever.Shared;
 using NexusForever.Shared.Configuration;
 using NexusForever.Shared.GameTable;
 using NexusForever.Shared.GameTable.Model;
 using NexusForever.Shared.IO.Map;
-using NLog;
+using System.Collections.Generic;
+using System.IO;
 
 namespace NexusForever.WorldServer.Game.Map
 {
-    public sealed class BaseMapManager : Singleton<BaseMapManager>
+    public sealed class BaseMapManager : AbstractManager<BaseMapManager>
     {
-        private static readonly Logger log = LogManager.GetCurrentClassLogger();
-
         private readonly Dictionary<string, MapFile> mapFiles = new Dictionary<string, MapFile>();
 
         private BaseMapManager()
         {
         }
 
-        public void Initialise()
+        public override BaseMapManager Initialise()
         {
             ValidateMapFiles();
             PreCacheMapFiles();
+            return Instance;
         }
 
         private void ValidateMapFiles()
         {
-            log.Info("Validating map files...");
+            Log.Info("Validating map files...");
 
             string mapPath = ConfigurationManager<WorldServerConfiguration>.Instance.Config.Map.MapPath;
             if (mapPath == null || !Directory.Exists(mapPath))
@@ -35,18 +33,16 @@ namespace NexusForever.WorldServer.Game.Map
 
             foreach (string fileName in Directory.EnumerateFiles(mapPath, "*.nfmap"))
             {
-                using (FileStream stream = File.OpenRead(fileName))
-                using (BinaryReader reader = new BinaryReader(stream))
-                {
-                    var mapFile = new MapFile();
-                    mapFile.ReadHeader(reader);
-                }
+                using FileStream stream = File.OpenRead(fileName);
+                using BinaryReader reader = new BinaryReader(stream);
+                var mapFile = new MapFile();
+                mapFile.ReadHeader(reader);
             }
         }
 
         private void PreCacheMapFiles()
         {
-            log.Info("Caching map files...");
+            Log.Info("Caching map files...");
 
             List<ushort> precachedBaseMaps = ConfigurationManager<WorldServerConfiguration>.Instance.Config.Map.PrecacheBaseMaps;
             if (precachedBaseMaps == null)
@@ -79,16 +75,14 @@ namespace NexusForever.WorldServer.Game.Map
             string asset    = Path.Combine(mapPath, Path.GetFileName(assetPath));
             string filePath = Path.ChangeExtension(asset, ".nfmap");
 
-            using (FileStream stream = File.OpenRead(filePath))
-            using (BinaryReader reader = new BinaryReader(stream))
-            {
-                var mapFile = new MapFile();
-                mapFiles.Add(assetPath, mapFile);
-                mapFile.Read(reader);
+            using FileStream stream = File.OpenRead(filePath);
+            using BinaryReader reader = new BinaryReader(stream);
+            var mapFile = new MapFile();
+            mapFiles.Add(assetPath, mapFile);
+            mapFile.Read(reader);
 
-                log.Trace($"Initialised base map file for asset {assetPath}.");
-                return mapFile;
-            }
+            Log.Trace($"Initialised base map file for asset {assetPath}.");
+            return mapFile;
         }
     }
 }

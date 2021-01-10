@@ -1,19 +1,16 @@
-﻿using System;
+﻿using NexusForever.Shared;
+using NexusForever.Shared.GameTable;
+using NexusForever.Shared.GameTable.Model;
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Linq;
-using NexusForever.Shared;
-using NexusForever.Shared.GameTable;
-using NexusForever.Shared.GameTable.Model;
-using NLog;
 
 namespace NexusForever.WorldServer.Game.Quest
 {
-    public sealed class GlobalQuestManager : Singleton<GlobalQuestManager>, IUpdate
+    public sealed class GlobalQuestManager : AbstractManager<GlobalQuestManager>, IUpdate
     {
-        private static readonly ILogger log = LogManager.GetCurrentClassLogger();
-
         /// <summary>
         /// <see cref="DateTime"/> representing the next daily reset.
         /// </summary>
@@ -33,7 +30,7 @@ namespace NexusForever.WorldServer.Game.Quest
         {
         }
 
-        public void Initialise()
+        public override GlobalQuestManager Initialise()
         {
             Stopwatch sw = Stopwatch.StartNew();
 
@@ -42,7 +39,8 @@ namespace NexusForever.WorldServer.Game.Quest
             InitialiseQuestRelations();
             InitialiseCommunicator();
 
-            log.Info($"Cached {questInfoStore.Count} quests in {sw.ElapsedMilliseconds}ms.");
+            Log.Info($"Cached {questInfoStore.Count} quests in {sw.ElapsedMilliseconds}ms.");
+            return Instance;
         }
 
         private void CalculateResetTimes()

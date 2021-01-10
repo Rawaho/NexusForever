@@ -2,7 +2,7 @@
 
 namespace NexusForever.Shared.Configuration
 {
-    public sealed class ConfigurationManager<T> : Singleton<ConfigurationManager<T>>
+    public sealed class ConfigurationManager<T> : AbstractManager<ConfigurationManager<T>>
     {
         public T Config { get; private set; }
 
@@ -10,10 +10,11 @@ namespace NexusForever.Shared.Configuration
         {
         }
 
-        public void Initialise(string file)
+        public ConfigurationManager<T> Initialise(string file)
         {
             SharedConfiguration.Initialise(file);
             Config = SharedConfiguration.Configuration.Get<T>();
+            return Instance;
         }
     }
 }

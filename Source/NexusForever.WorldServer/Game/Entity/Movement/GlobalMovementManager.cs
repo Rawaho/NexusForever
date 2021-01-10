@@ -1,15 +1,15 @@
-﻿using System;
-using System.Collections.Immutable;
-using System.Linq.Expressions;
-using System.Reflection;
-using NexusForever.Shared;
+﻿using NexusForever.Shared;
 using NexusForever.WorldServer.Game.Entity.Movement.Spline;
 using NexusForever.WorldServer.Game.Entity.Movement.Spline.Implementation;
 using NexusForever.WorldServer.Game.Entity.Movement.Spline.Static;
+using System;
+using System.Collections.Immutable;
+using System.Linq.Expressions;
+using System.Reflection;
 
 namespace NexusForever.WorldServer.Game.Entity.Movement
 {
-    public sealed class GlobalMovementManager : Singleton<GlobalMovementManager>
+    public sealed class GlobalMovementManager : AbstractManager<GlobalMovementManager>
     {
         private delegate ISplineMode EntitySplineModeFactoryDelegate();
         private static ImmutableDictionary<SplineMode, EntitySplineModeFactoryDelegate> splineModeFactories;
@@ -18,9 +18,10 @@ namespace NexusForever.WorldServer.Game.Entity.Movement
         {
         }
 
-        public void Initialise()
+        public override GlobalMovementManager Initialise()
         {
             InitialiseSplineModeFactories();
+            return Instance;
         }
 
         private void InitialiseSplineModeFactories()

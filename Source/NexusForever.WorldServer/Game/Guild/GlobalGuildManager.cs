@@ -1,12 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Collections.Immutable;
-using System.Diagnostics;
-using System.Linq;
-using System.Linq.Expressions;
-using System.Reflection;
-using System.Threading.Tasks;
-using NexusForever.Database;
+﻿using NexusForever.Database;
 using NexusForever.Database.Character.Model;
 using NexusForever.Shared;
 using NexusForever.Shared.Database;
@@ -15,14 +7,19 @@ using NexusForever.WorldServer.Game.Entity;
 using NexusForever.WorldServer.Game.Guild.Static;
 using NexusForever.WorldServer.Game.Social.Static;
 using NexusForever.WorldServer.Network.Message.Model;
-using NLog;
+using System;
+using System.Collections.Generic;
+using System.Collections.Immutable;
+using System.Diagnostics;
+using System.Linq;
+using System.Linq.Expressions;
+using System.Reflection;
+using System.Threading.Tasks;
 
 namespace NexusForever.WorldServer.Game.Guild
 {
-    public sealed class GlobalGuildManager : Singleton<GlobalGuildManager>
+    public sealed class GlobalGuildManager : AbstractManager<GlobalGuildManager>
     {
-        private static ILogger log { get; } = LogManager.GetCurrentClassLogger();
-
         // TODO: move this to the config file
         private const double SaveDuration = 60d;
 
@@ -32,7 +29,7 @@ namespace NexusForever.WorldServer.Game.Guild
         public ulong NextGuildId => nextGuildId++;
         private ulong nextGuildId;
 
-        private readonly Dictionary</*guildId*/ ulong, GuildBase> guilds = new Dictionary<ulong, GuildBase>();
+        private readonly Dictionary</*guildId*/ ulong, GuildBase> guilds = new Dictionary</*guildId*/ ulong, GuildBase>();
         private readonly Dictionary<string, ulong> guildNameCache = new Dictionary<string, ulong>(StringComparer.InvariantCultureIgnoreCase);
         private readonly Dictionary<ulong, List<ulong>> guildMemberCache = new Dictionary<ulong, List<ulong>>();
 
@@ -45,12 +42,13 @@ namespace NexusForever.WorldServer.Game.Guild
         /// <summary>
         /// Initialise the <see cref="GlobalGuildManager"/>, and build cache of all existing guilds
         /// </summary>
-        public void Initialise()
+        public override GlobalGuildManager Initialise()
         {
             nextGuildId = DatabaseManager.Instance.CharacterDatabase.GetNextGuildId() + 1ul;
 
             InitialiseGuilds();
             InitialiseGuildOperationHandlers();
+            return Instance;
         }
 
         private void InitialiseGuilds()
@@ -78,7 +76,7 @@ namespace NexusForever.WorldServer.Game.Guild
                         guild = new Community(model);
                         break;
                     default:
-                        throw new DatabaseDataException($"Guild type not recognised {(GuildType)model.Type} for guild {model.Id}!");
+                        throw new DatabaseDataException($"Guild type not recognized {(GuildType)model.Type} for guild {model.Id}!");
                 }
 
                 guilds.Add(guild.Id, guild);
@@ -89,10 +87,10 @@ namespace NexusForever.WorldServer.Game.Guild
                 foreach (GuildMember member in members)
                     TrackCharacterGuild(member.CharacterId, guild.Id);
 
-                log.Trace($"Initialised guild {guild.Name}({guild.Id}) with {members.Count} members.");
+                Log.Trace($"Initialised guild {guild.Name}({guild.Id}) with {members.Count} members.");
             }
 
-            log.Info($"Initialized {guilds.Count} guilds from the database.");
+            Log.Info($"Initialized {guilds.Count} guilds from the database.");
         }
 
         /// <summary>
@@ -155,7 +153,7 @@ namespace NexusForever.WorldServer.Game.Guild
             }
 
             guildOperationHandlers = builder.ToImmutable();
-            log.Info($"Initilaised {guildOperationHandlers.Count} guild operation handlers.");
+            Log.Info($"Initilaised {guildOperationHandlers.Count} guild operation handlers.");
         }
 
         /// <summary>
@@ -290,7 +288,7 @@ namespace NexusForever.WorldServer.Game.Guild
         {
             if (!guildOperationHandlers.TryGetValue(operation.Operation, out (GuildOperationHandlerDelegate, GuildOperationHandlerResultDelegate) handlers))
             {
-                log.Warn($"Received unhandled GuildOperation {operation.Operation}.");
+                Log.Warn($"Received unhandled GuildOperation {operation.Operation}.");
 
                 player.Session.EnqueueMessageEncrypted(new ServerChat
                 {

@@ -1,18 +1,15 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using NexusForever.Shared;
+﻿using NexusForever.Shared;
 using NexusForever.Shared.GameTable;
 using NexusForever.Shared.GameTable.Model;
 using NexusForever.WorldServer.Game.Achievement.Static;
-using NLog;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace NexusForever.WorldServer.Game.Achievement
 {
-    public sealed class GlobalAchievementManager : Singleton<GlobalAchievementManager>
+    public sealed class GlobalAchievementManager : AbstractManager<GlobalAchievementManager>
     {
-        private static readonly ILogger log = LogManager.GetCurrentClassLogger();
-
         public readonly Dictionary<ushort, AchievementInfo> achievements
             = new Dictionary<ushort, AchievementInfo>();
         private readonly Dictionary<AchievementType, List<AchievementInfo>> characterAchievements
@@ -24,7 +21,7 @@ namespace NexusForever.WorldServer.Game.Achievement
         {
         }
 
-        public void Initialise()
+        public override GlobalAchievementManager Initialise()
         {
             DateTime start = DateTime.UtcNow;
 
@@ -42,7 +39,8 @@ namespace NexusForever.WorldServer.Game.Achievement
             }
 
             TimeSpan span = DateTime.UtcNow - start;
-            log.Info($"Initialised {achievements.Count} achievements in {span.TotalMilliseconds}ms.");
+            Log.Info($"Initialised {achievements.Count} achievements in {span.TotalMilliseconds}ms.");
+            return Instance;
         }
 
         /// <summary>

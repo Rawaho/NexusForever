@@ -1,23 +1,20 @@
-﻿using System;
+﻿using NexusForever.Shared;
+using NexusForever.Shared.GameTable;
+using NexusForever.Shared.GameTable.Model;
+using NexusForever.WorldServer.Game.Entity;
+using NexusForever.WorldServer.Game.Spell.Static;
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
-using NexusForever.Shared;
-using NexusForever.Shared.GameTable;
-using NexusForever.Shared.GameTable.Model;
-using NexusForever.WorldServer.Game.Entity;
-using NexusForever.WorldServer.Game.Spell.Static;
-using NLog;
 
 namespace NexusForever.WorldServer.Game.Spell
 {
-    public sealed class GlobalSpellManager : Singleton<GlobalSpellManager>
+    public sealed class GlobalSpellManager : AbstractManager<GlobalSpellManager>
     {
-        private static readonly ILogger log = LogManager.GetCurrentClassLogger();
-
         /// <summary>
         /// Id to be assigned to the next spell cast.
         /// </summary>
@@ -43,11 +40,12 @@ namespace NexusForever.WorldServer.Game.Spell
         {
         }
 
-        public void Initialise()
+        public override GlobalSpellManager Initialise()
         {
             CacheSpellEntries();
             InitialiseSpellInfo();
             InitialiseSpellEffectHandlers();
+            return Instance;
         }
 
         private void CacheSpellEntries()
@@ -75,12 +73,12 @@ namespace NexusForever.WorldServer.Game.Spell
         private void InitialiseSpellInfo()
         {
             Stopwatch sw = Stopwatch.StartNew();
-            log.Info("Generating spell info...");
+            Log.Info("Generating spell info...");
 
             foreach (Spell4BaseEntry entry in GameTableManager.Instance.Spell4Base.Entries)
                 spellBaseInfoStore.Add(entry.Id, new SpellBaseInfo(entry));
 
-            log.Info($"Cached {spellBaseInfoStore.Count} spells in {sw.ElapsedMilliseconds}ms.");
+            Log.Info($"Cached {spellBaseInfoStore.Count} spells in {sw.ElapsedMilliseconds}ms.");
         }
 
         private void InitialiseSpellEffectHandlers()

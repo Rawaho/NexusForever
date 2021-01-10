@@ -5,15 +5,13 @@ using System.Diagnostics;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
-using NLog;
 
 namespace NexusForever.Shared.Network.Message
 {
     public delegate void MessageHandlerDelegate(NetworkSession session, IReadable message);
 
-    public sealed class MessageManager : Singleton<MessageManager>
+    public sealed class MessageManager : AbstractManager<MessageManager>
     {
-        private static readonly ILogger log = LogManager.GetCurrentClassLogger();
 
         private delegate IReadable MessageFactoryDelegate();
 
@@ -26,10 +24,11 @@ namespace NexusForever.Shared.Network.Message
         {
         }
 
-        public void Initialise()
+        public override MessageManager Initialise()
         {
             InitialiseMessages();
             InitialiseMessageHandlers();
+            return Instance;
         }
 
         private void InitialiseMessages()
@@ -37,8 +36,7 @@ namespace NexusForever.Shared.Network.Message
             var messageFactories = new Dictionary<GameMessageOpcode, MessageFactoryDelegate>();
             var messageOpcodes   = new Dictionary<Type, GameMessageOpcode>();
 
-            foreach (Type type in Assembly.GetExecutingAssembly().GetTypes()
-                .Concat(Assembly.GetEntryAssembly().GetTypes()))
+            foreach (Type type in Assembly.GetExecutingAssembly().GetTypes().Concat(Assembly.GetEntryAssembly()?.GetTypes()!))
             {
                 MessageAttribute attribute = type.GetCustomAttribute<MessageAttribute>();
                 if (attribute == null)
@@ -46,7 +44,7 @@ namespace NexusForever.Shared.Network.Message
 
                 if (typeof(IReadable).IsAssignableFrom(type))
                 {
-                    NewExpression @new = Expression.New(type.GetConstructor(Type.EmptyTypes));
+                    NewExpression @new = Expression.New(type.GetConstructor(Type.EmptyTypes)!);
                     messageFactories.Add(attribute.Opcode, Expression.Lambda<MessageFactoryDelegate>(@new).Compile());
                 }
                 if (typeof(IWritable).IsAssignableFrom(type))
@@ -55,16 +53,15 @@ namespace NexusForever.Shared.Network.Message
 
             clientMessageFactories = messageFactories.ToImmutableDictionary();
             serverMessageOpcodes   = messageOpcodes.ToImmutableDictionary();
-            log.Info($"Initialised {clientMessageFactories.Count} message {(clientMessageFactories.Count == 1 ? "factory" : "factories")}.");
-            log.Info($"Initialised {serverMessageOpcodes.Count} message(s).");
+            Log.Info($"Initialised {clientMessageFactories.Count} message {(clientMessageFactories.Count == 1 ? "factory" : "factories")}.");
+            Log.Info($"Initialised {serverMessageOpcodes.Count} message(s).");
         }
 
         private void InitialiseMessageHandlers()
         {
             var messageHandlers = new Dictionary<GameMessageOpcode, MessageHandlerDelegate>();
 
-            foreach (Type type in Assembly.GetExecutingAssembly().GetTypes()
-                .Concat(Assembly.GetEntryAssembly().GetTypes()))
+            foreach (Type type in Assembly.GetExecutingAssembly().GetTypes().Concat(Assembly.GetEntryAssembly()?.GetTypes()!))
             {
                 foreach (MethodInfo method in type.GetMethods())
                 {
@@ -119,24 +116,17 @@ namespace NexusForever.Shared.Network.Message
             }
 
             clientMessageHandlers = messageHandlers.ToImmutableDictionary();
-            log.Info($"Initialised {clientMessageHandlers.Count} message handler(s).");
+            Log.Info($"Initialised {clientMessageHandlers.Count} message handler(s).");
         }
 
-        public IReadable GetMessage(GameMessageOpcode opcode)
-        {
-            return clientMessageFactories.TryGetValue(opcode, out MessageFactoryDelegate factory)
+        public IReadable GetMessage(GameMessageOpcode opCode) =>
+            clientMessageFactories.TryGetValue(opCode, out MessageFactoryDelegate factory)
                 ? factory.Invoke() : null;
-        }
 
-        public bool GetOpcode(IWritable message, out GameMessageOpcode opcode)
-        {
-            return serverMessageOpcodes.TryGetValue(message.GetType(), out opcode);
-        }
+        public bool GetOpCode(IWritable message, out GameMessageOpcode opCode) => serverMessageOpcodes.TryGetValue(message.GetType(), out opCode);
 
-        public MessageHandlerDelegate GetMessageHandler(GameMessageOpcode opcode)
-        {
-            return clientMessageHandlers.TryGetValue(opcode, out MessageHandlerDelegate handler)
+        public MessageHandlerDelegate GetMessageHandler(GameMessageOpcode opCode) =>
+            clientMessageHandlers.TryGetValue(opCode, out MessageHandlerDelegate handler)
                 ? handler : null;
-        }
     }
 }

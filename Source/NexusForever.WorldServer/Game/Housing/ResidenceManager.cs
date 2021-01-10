@@ -1,18 +1,18 @@
-﻿using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using NexusForever.Database.Character.Model;
+﻿using NexusForever.Database.Character.Model;
 using NexusForever.Shared;
 using NexusForever.Shared.Database;
 using NexusForever.Shared.GameTable;
 using NexusForever.Shared.GameTable.Model;
 using NexusForever.WorldServer.Game.Entity;
+using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace NexusForever.WorldServer.Game.Housing
 {
-    public sealed class ResidenceManager : Singleton<ResidenceManager>, IUpdate
+    public sealed class ResidenceManager : AbstractManager<ResidenceManager>, IUpdate
     {
         // TODO: move this to the config file
         private const double SaveDuration = 60d;
@@ -30,8 +30,8 @@ namespace NexusForever.WorldServer.Game.Housing
         private ulong nextResidenceId;
         private ulong nextDecorId;
 
-        private static readonly ConcurrentDictionary</*residenceId*/ ulong, Residence> residences = new ConcurrentDictionary<ulong, Residence>();
-        private readonly ConcurrentDictionary</*owner*/ string, ulong /*residenceId*/> ownerCache = new ConcurrentDictionary<string, ulong>(StringComparer.InvariantCultureIgnoreCase);
+        private static readonly ConcurrentDictionary</*residenceId*/ ulong, Residence> residences = new ConcurrentDictionary</*residenceId*/ ulong, Residence>();
+        private readonly ConcurrentDictionary</*owner*/ string, ulong /*residenceId*/> ownerCache = new ConcurrentDictionary</*owner*/ string, ulong /*residenceId*/>(StringComparer.InvariantCultureIgnoreCase);
 
         private readonly Dictionary<ulong, PublicResidence> visitableResidences = new Dictionary<ulong, PublicResidence>();
 
@@ -41,13 +41,15 @@ namespace NexusForever.WorldServer.Game.Housing
         {
         }
 
-        public void Initialise()
+        public override ResidenceManager Initialise()
         {
             nextResidenceId = DatabaseManager.Instance.CharacterDatabase.GetNextResidenceId() + 1ul;
             nextDecorId     = DatabaseManager.Instance.CharacterDatabase.GetNextDecorId() + 1ul;
 
             foreach (ResidenceModel residence in DatabaseManager.Instance.CharacterDatabase.GetPublicResidences())
                 RegisterResidenceVists(residence.Id, residence.Character.Name, residence.Name);
+
+            return Instance;
         }
 
         public void Update(double lastTick)

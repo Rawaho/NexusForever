@@ -1,21 +1,18 @@
-﻿using System;
+﻿using NexusForever.Shared;
+using NexusForever.Shared.Network;
+using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Linq.Expressions;
 using System.Reflection;
-using NexusForever.Shared;
-using NLog;
-using NexusForever.Shared.Network;
 
 namespace NexusForever.StsServer.Network.Message
 {
     public delegate void MessageHandlerDelegate(NetworkSession session, IReadable message);
 
-    public sealed class MessageManager : Singleton<MessageManager>
+    public sealed class MessageManager : AbstractManager<MessageManager>
     {
-        private static readonly ILogger log = LogManager.GetCurrentClassLogger();
-
         private delegate IReadable MessageFactoryDelegate();
         private ImmutableDictionary<string, MessageFactoryDelegate> clientMessageFactories;
 
@@ -25,10 +22,11 @@ namespace NexusForever.StsServer.Network.Message
         {
         }
 
-        public void Initialise()
+        public override MessageManager Initialise()
         {
             InitialiseMessageFactories();
             InitialiseMessageHandlers();
+            return Instance;
         }
 
         private void InitialiseMessageFactories()
@@ -46,7 +44,7 @@ namespace NexusForever.StsServer.Network.Message
             }
 
             clientMessageFactories = messageFactories.ToImmutableDictionary();
-            log.Info($"Initialised {clientMessageFactories.Count} message {(clientMessageFactories.Count == 1 ? "factory" : "factories")}.");
+            Log.Info($"Initialised {clientMessageFactories.Count} message {(clientMessageFactories.Count == 1 ? "factory" : "factories")}.");
         }
 
         private void InitialiseMessageHandlers()
@@ -84,7 +82,7 @@ namespace NexusForever.StsServer.Network.Message
             }
 
             clientMessageHandlers = messageHandlers.ToImmutableDictionary();
-            log.Info($"Initialised {clientMessageHandlers.Count} message handler(s).");
+            Log.Info($"Initialised {clientMessageHandlers.Count} message handler(s).");
         }
 
         public IReadable GetMessage(string uri)

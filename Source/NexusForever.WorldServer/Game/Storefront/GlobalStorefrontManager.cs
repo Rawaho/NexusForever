@@ -1,14 +1,13 @@
-using System;
-using System.Collections.Generic;
-using System.Collections.Immutable;
-using System.Linq;
 using NexusForever.Database.World.Model;
 using NexusForever.Shared;
 using NexusForever.Shared.Database;
 using NexusForever.WorldServer.Game.Storefront.Static;
 using NexusForever.WorldServer.Network;
 using NexusForever.WorldServer.Network.Message.Model;
-using NLog;
+using System;
+using System.Collections.Generic;
+using System.Collections.Immutable;
+using System.Linq;
 
 namespace NexusForever.WorldServer.Game.Storefront
 {
@@ -16,10 +15,8 @@ namespace NexusForever.WorldServer.Game.Storefront
     /// GlobalStorefrontManager provides global caching of all the store items that are sent to each player. It was made global so that reloading store items while the server is 
     /// running would be handled in a global context.
     /// </summary>
-    public sealed class GlobalStorefrontManager : Singleton<GlobalStorefrontManager>
+    public sealed class GlobalStorefrontManager : AbstractManager<GlobalStorefrontManager>
     {
-        private static readonly ILogger log = LogManager.GetCurrentClassLogger();
-
         private ImmutableDictionary<uint, Category> storeCategories;
         private ImmutableList<ServerStoreCategories.StoreCategory> serverStoreCategoryCache;
 
@@ -32,14 +29,15 @@ namespace NexusForever.WorldServer.Game.Storefront
         {
         }
 
-        public void Initialise()
+        public override GlobalStorefrontManager Initialise()
         {
             InitialiseStoreCategories();
             InitialiseStoreOfferGroups();
 
             BuildNetworkPackets();
 
-            log.Info($"Initialised {storeCategories.Count} categories with {offerGroups.Count} offers groups.");
+            Log.Info($"Initialised {storeCategories.Count} categories with {offerGroups.Count} offers groups.");
+            return Instance;
         }
 
         private void InitialiseStoreCategories()
