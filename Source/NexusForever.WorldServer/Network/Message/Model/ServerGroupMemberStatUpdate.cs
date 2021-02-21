@@ -1,5 +1,6 @@
 ﻿using NexusForever.Shared.Network;
 using NexusForever.Shared.Network.Message;
+using NexusForever.WorldServer.Game.Entity.Static;
 using NexusForever.WorldServer.Network.Message.Model.Shared;
 
 namespace NexusForever.WorldServer.Network.Message.Model
@@ -33,7 +34,7 @@ namespace NexusForever.WorldServer.Network.Message.Model
 
         public uint PhaseFlags1 { get; set; } = 1;
         public uint PhaseFlags2 { get; set; } = 1;
-        public byte Unk5 { get; set; }
+        public Path Path { get; set; }
 
         public void Write(GamePacketWriter writer)
         {
@@ -67,7 +68,7 @@ namespace NexusForever.WorldServer.Network.Message.Model
 
             writer.Write(PhaseFlags1);
             writer.Write(PhaseFlags2);
-            writer.Write(Unk5, 3);
+            writer.Write(Path, 3);
         }
     }
 }

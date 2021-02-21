@@ -181,7 +181,8 @@ namespace NexusForever.WorldServer.Game.Group.Model
                 Shield              = (ushort)targetPlayer.Shield,
                 ShieldMax           = (ushort)targetPlayer.Shield,
                 InterruptArmor      = (ushort)targetPlayer.InterruptArmor,
-                InterruptArmorMax   = (ushort)targetPlayer.InterruptArmor
+                InterruptArmorMax   = (ushort)targetPlayer.InterruptArmor,
+                Path                = targetPlayer.Path
             };
         }
     }
