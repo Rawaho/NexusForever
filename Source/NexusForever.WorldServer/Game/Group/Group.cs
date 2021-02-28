@@ -65,6 +65,8 @@ namespace NexusForever.WorldServer.Game.Group
         public bool IsFull { get => members.Count >= MaxGroupSize; }
 
         private bool isNewGroup { get; set; }
+
+        private UpdateTimer positionUpdateTimer;
           
         /// <summary>
         /// Creates an instance of <see cref="Group"/>
@@ -78,6 +80,7 @@ namespace NexusForever.WorldServer.Game.Group
             markerInfo = new Model.GroupMarkerInfo(this);
 
             SetGroupSize();
+            positionUpdateTimer = new UpdateTimer(1, false);
         }
 
         /// <summary>
@@ -116,6 +119,14 @@ namespace NexusForever.WorldServer.Game.Group
                     ExpireInvite(invite);
                 }
             }
+
+             
+            positionUpdateTimer.Update(lastTick); 
+            if (positionUpdateTimer.HasElapsed)
+            {
+                positionUpdateTimer.Reset();
+                UpdatePositions();
+            } 
         }
 
         /// <summary>
@@ -411,7 +422,8 @@ namespace NexusForever.WorldServer.Game.Group
         {
             if (isNewGroup)
             {
-                isNewGroup = false; 
+                isNewGroup = false;
+                positionUpdateTimer.Reset();
 
                 foreach (var member in members)
                 {
@@ -806,7 +818,7 @@ namespace NexusForever.WorldServer.Game.Group
         /// <returns>A <see cref="Player"/> object if the player is online, null otherwise.</returns>
         private bool GetPlayerByCharacterId(ulong characterId, out Player targetPlayer)
         {
-            ICharacter character = CharacterManager.Instance.GetCharacterInfo(characterId);
+            GetCharacterInfoByCharacterId(characterId, out ICharacter character);
             if (character is Player player) {
                 targetPlayer = player;
                 return true;
@@ -815,6 +827,72 @@ namespace NexusForever.WorldServer.Game.Group
             targetPlayer = null;
             return false;
         }
-         
+
+        private void UpdatePositions()
+        { 
+            foreach (var member in members)
+            {
+                if (!GetPlayerByCharacterId(member.CharacterId, out Player player))
+                    continue;
+
+                if (member.ZoneId != player.Zone.Id)
+                {
+                    member.ZoneId = (ushort)player.Zone.Id;
+                    members.ForEach(m =>
+                    {
+                       if (!GetPlayerByCharacterId(m.CharacterId, out Player p))
+                           return;
+
+                        p.Session.EnqueueMessageEncrypted(new ServerGroupUpdatePlayerRealm
+                        {
+                            GroupId = Id,
+                            TargetPlayerIdentity = new TargetPlayerIdentity() { CharacterId = m.CharacterId, RealmId = WorldServer.RealmId },
+                            MapId = p.Map.Entry.Id,
+                            RealmId = WorldServer.RealmId,
+                            PhaseId = 1,
+                            IsSyncdToGroup = true,
+                            ZoneId = member.ZoneId
+                        });
+                    });
+                }
+            }
+
+            var updates = new Dictionary<ushort, ServerGroupPositionUpdate>();
+            foreach (var member in members)
+            {
+                if (!GetPlayerByCharacterId(member.CharacterId, out Player player))
+                    continue;
+
+                if (!updates.TryGetValue(member.ZoneId, out ServerGroupPositionUpdate update))
+                {
+                    update = new ServerGroupPositionUpdate
+                    {
+                       GroupId = Id,
+                       Updates = new List<ServerGroupPositionUpdate.UnknownStruct0>(),
+                       ZoneId = member.ZoneId
+                    };
+                    updates.Add(member.ZoneId, update);
+                }
+                 
+                var entry = new ServerGroupPositionUpdate.UnknownStruct0
+                {
+                    Identity = new TargetPlayerIdentity() { CharacterId = member.CharacterId, RealmId = WorldServer.RealmId },
+                    Flags = 3,
+                    Position = new Position(player.Position),
+                    Unknown0 = 1
+                };
+                update.Updates.Add(entry);
+            }
+
+            foreach (var item in updates)
+            {
+                members.ForEach(m => {
+                    if (!GetPlayerByCharacterId(m.CharacterId, out Player p))
+                        return;
+
+                    p.Session.EnqueueMessageEncrypted(item.Value);
+                });
+            }  
+        } 
     }
 }
