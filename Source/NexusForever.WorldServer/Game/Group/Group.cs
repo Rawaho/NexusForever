@@ -55,10 +55,15 @@ namespace NexusForever.WorldServer.Game.Group
         public uint MaxGroupSize { get; set; }
 
         /// <summary>
+        /// If this group is an open world group.
+        /// </summary>
+        public bool IsOpenWorld { get => Flags.HasFlag(GroupFlags.OpenWorld); }
+
+        /// <summary>
         /// If this group is a raid.
         /// </summary>
         public bool IsRaid { get => Flags.HasFlag(GroupFlags.Raid); }
-        
+
         /// <summary>
         /// True if the Group is full.
         /// </summary>
@@ -67,16 +72,14 @@ namespace NexusForever.WorldServer.Game.Group
         private bool isNewGroup { get; set; }
 
         private UpdateTimer positionUpdateTimer;
-          
+
         /// <summary>
         /// Creates an instance of <see cref="Group"/>
         /// </summary>
-        public Group(ulong id, Player leader)
+        protected Group(ulong id)
         {
             isNewGroup = true;
-            Id     = id;
-            Flags |= GroupFlags.OpenWorld;
-            Leader = CreateMember(leader);
+            Id = id;             
             markerInfo = new Model.GroupMarkerInfo(this);
 
             SetGroupSize();
@@ -90,12 +93,12 @@ namespace NexusForever.WorldServer.Game.Group
         {
             GroupHandler.SendGroupResult(inviter.Session, GroupResult.Sent, Id, invitedPlayer.Name);
 
-            GroupInvite invite = CreateInvite(inviter.GroupMember, invitedPlayer, GroupInviteType.Invite);
+            GroupInvite invite = CreateInvite(GetMembershipForGroupFromPlayer(inviter), invitedPlayer, GroupInviteType.Invite);
             SendInvite(invite);
         }
 
         /// <summary>
-        /// Create and add a new <see cref="GroupMember"/>
+        /// Creates a new <see cref="GroupMember"/> for the target player is this group and assigned the membership to the player.
         /// to the <see cref="Group"/>
         /// </summary>
         public GroupMember CreateMember(Player player)
@@ -103,8 +106,7 @@ namespace NexusForever.WorldServer.Game.Group
             GroupMember member = new GroupMember(NextMemberId(), this, player);
             members.Add(member);
             membershipsByCharacterID.Add(player.CharacterId, member);
-
-            player.GroupMember = member;
+            player.AddToGroup(member);
             return member;
         }
 
@@ -120,13 +122,13 @@ namespace NexusForever.WorldServer.Game.Group
                 }
             }
 
-             
-            positionUpdateTimer.Update(lastTick); 
+
+            positionUpdateTimer.Update(lastTick);
             if (positionUpdateTimer.HasElapsed)
             {
                 positionUpdateTimer.Reset();
                 UpdatePositions();
-            } 
+            }
         }
 
         /// <summary>
@@ -161,7 +163,7 @@ namespace NexusForever.WorldServer.Game.Group
         /// </summary>
         public List<GroupMemberInfo> BuildMembersInfo()
         {
-            List<GroupMemberInfo> memberList = new List<GroupMemberInfo>(); 
+            List<GroupMemberInfo> memberList = new List<GroupMemberInfo>();
 
             foreach (var member in members)
                 memberList.Add(member.BuildMemberInfo());
@@ -199,7 +201,7 @@ namespace NexusForever.WorldServer.Game.Group
             invitedPlayer.GroupInvite = invite;
             return invite;
         }
-         
+
         /// <summary>
         /// Get the next available InviteId
         /// </summary>
@@ -220,7 +222,7 @@ namespace NexusForever.WorldServer.Game.Group
         {
             if (!invites.ContainsKey(invite.InviteId))
                 return;
-                  
+
             RemoveInvite(invite);
             switch (invite.Type)
             {
@@ -228,7 +230,7 @@ namespace NexusForever.WorldServer.Game.Group
                     if (GetPlayerByCharacterId(Leader.CharacterId, out Player leader))
                         GroupHandler.SendGroupResult(leader.Session, GroupResult.ExpiredInviter, Id, invite.InvitedCharacterName);
 
-                    if(GetPlayerByCharacterId(invite.InvitedCharacterId, out Player invited))
+                    if (GetPlayerByCharacterId(invite.InvitedCharacterId, out Player invited))
                         GroupHandler.SendGroupResult(invited.Session, GroupResult.ExpiredInvitee, Id, invite.InvitedCharacterName);
                     break;
                 case GroupInviteType.Request:
@@ -259,7 +261,7 @@ namespace NexusForever.WorldServer.Game.Group
                 return;
 
             // If the person who accepted the invite is not online - how TF did they accept the invite?
-            if (!GetPlayerByCharacterId(invite.InvitedCharacterId, out Player targetPlayer)) 
+            if (!GetPlayerByCharacterId(invite.InvitedCharacterId, out Player targetPlayer))
                 return;
 
             GroupMember addedMember = CreateMember(targetPlayer);
@@ -285,14 +287,14 @@ namespace NexusForever.WorldServer.Game.Group
                         IsJoin = true,
                         Name = leader.Name,
                         Result = GroupResult.Accepted
-                    });  
+                    });
                     break;
                 case GroupInviteType.Referral:
                     break;
             }
-            
+
         }
-         
+
         /// <summary>
         /// Declines the <see cref="GroupInvite"/> by player name.
         /// </summary>
@@ -312,10 +314,10 @@ namespace NexusForever.WorldServer.Game.Group
             if (!invites.ContainsKey(invite.InviteId))
                 return;
 
-            RemoveInvite(invite); 
+            RemoveInvite(invite);
             GetPlayerByCharacterId(invite.InvitedCharacterId, out Player targetPlayer); // presumable to decline the invite the player has to be online. Expire is handled seperatly.
-            GetPlayerByCharacterId(invite.InvitedCharacterId, out Player leader);
-            
+            GetPlayerByCharacterId(Leader.CharacterId, out Player leader);
+
             switch (invite.Type)
             {
                 case GroupInviteType.Invite:
@@ -338,7 +340,7 @@ namespace NexusForever.WorldServer.Game.Group
                 case GroupInviteType.Referral:
                     //TODO: Does this need to be implemented?
                     break;
-            } 
+            }
         }
 
         /// <summary>
@@ -357,7 +359,7 @@ namespace NexusForever.WorldServer.Game.Group
                 new ServerGroupReferral
                 {
                     GroupId = Id,
-                    InviteeIdentity = new TargetPlayerIdentity {CharacterId = invitee.CharacterId, RealmId = WorldServer.RealmId },
+                    InviteeIdentity = new TargetPlayerIdentity { CharacterId = invitee.CharacterId, RealmId = WorldServer.RealmId },
                     InviteeName = invitee.Name
                 }
             );
@@ -370,7 +372,7 @@ namespace NexusForever.WorldServer.Game.Group
 
             // Remnove the pending invite so it doesnt get re-sent when somone comes online.
             invites.Remove(invite.InviteId);
-            if (!GetPlayerByCharacterId(invite.InvitedCharacterId, out Player targetPlayer)) 
+            if (!GetPlayerByCharacterId(invite.InvitedCharacterId, out Player targetPlayer))
                 return;
 
             // If i cant get the player here, there is no player object to remove the invite from.
@@ -432,16 +434,16 @@ namespace NexusForever.WorldServer.Game.Group
 
                     ServerGroupJoin groupJoinPacket = new ServerGroupJoin
                     {
-                        TargetPlayer        = new TargetPlayerIdentity
+                        TargetPlayer = new TargetPlayerIdentity
                         {
-                            CharacterId     = player.CharacterId,
-                            RealmId         = WorldServer.RealmId
+                            CharacterId = player.CharacterId,
+                            RealmId = WorldServer.RealmId
                         },
-                        GroupInfo           = Build()
+                        GroupInfo = Build()
                     };
 
                     player.Session.EnqueueMessageEncrypted(groupJoinPacket);
-                    foreach(GroupMember member2 in members)
+                    foreach (GroupMember member2 in members)
                         player.Session.EnqueueMessageEncrypted(member2.BuildGroupStatUpdate());
                 }
             }
@@ -452,12 +454,12 @@ namespace NexusForever.WorldServer.Game.Group
 
                 addedPlayer.Session.EnqueueMessageEncrypted(new ServerGroupJoin
                 {
-                    TargetPlayer        = new TargetPlayerIdentity
+                    TargetPlayer = new TargetPlayerIdentity
                     {
-                        CharacterId     = addedPlayer.CharacterId,
-                        RealmId         = WorldServer.RealmId
+                        CharacterId = addedPlayer.CharacterId,
+                        RealmId = WorldServer.RealmId
                     },
-                    GroupInfo           = Build()
+                    GroupInfo = Build()
                 });
 
                 BroadcastPacket(new ServerGroupMemberAdd
@@ -465,18 +467,18 @@ namespace NexusForever.WorldServer.Game.Group
                     GroupId = Id,
                     AddedMemberInfo = addedMember.BuildMemberInfo()
                 });
-
                 foreach (GroupMember member2 in members)
                     addedPlayer.Session.EnqueueMessageEncrypted(member2.BuildGroupStatUpdate());
             }
         }
-         
+
         /// <summary>
         /// Kick a <see cref="GroupMember"/> from the <see cref="Group"/>.
         /// </summary>
         public void KickMember(TargetPlayerIdentity target)
         {
-            if (members.Count == 2) {
+            // TODO: If WoW is anything to go by; instance groups do NOT disband like this; once the instance is closed the group will be cleaned up.// // TODO: If WoW is anything to go by; instance groups do NOT disband like this; once the instance is closed the group will be cleaned up.
+            if (members.Count == 2 && IsOpenWorld) {
                 Disband();
                 return;
             }
@@ -488,29 +490,29 @@ namespace NexusForever.WorldServer.Game.Group
             if (kickedMember.IsPartyLeader)
                 return;
 
-            GetPlayerByCharacterId(kickedMember.CharacterId, out Player kickedPlayer); 
+            GetPlayerByCharacterId(kickedMember.CharacterId, out Player kickedPlayer);
             members.Remove(kickedMember);
             membershipsByCharacterID.Remove(kickedMember.CharacterId);
-            
+
 
             // Tell the player they are no longer in a group.
             if (kickedPlayer != null)
             {
-                kickedPlayer.GroupMember = null;
+                kickedPlayer.RemoveFromGroup(kickedMember);
                 kickedPlayer.Session.EnqueueMessageEncrypted(new ServerGroupLeave
                 {
                     GroupId = Id,
                     Reason = RemoveReason.Kicked
                 });
             }
-             
+
             // Tell Other memebers of the group this player has been kicked.
             BroadcastPacket(new ServerGroupRemove
             {
                 GroupId = Id,
                 Reason = RemoveReason.Kicked,
                 TargetPlayer = target
-            }); 
+            });
         }
 
         /// <summary>
@@ -526,13 +528,13 @@ namespace NexusForever.WorldServer.Game.Group
             members.Remove(memberToRemove);
             membershipsByCharacterID.Remove(memberToRemove.CharacterId);
 
-            if (removedPlayer != null) { 
-                removedPlayer.GroupMember = null;
+            if (removedPlayer != null) {
+                removedPlayer.RemoveFromGroup(memberToRemove);
                 removedPlayer.Session.EnqueueMessageEncrypted(new ServerGroupLeave
                 {
                     GroupId = Id,
                     Reason = RemoveReason.Left
-                });            
+                });
             }
 
             BroadcastPacket(new ServerGroupRemove
@@ -557,13 +559,13 @@ namespace NexusForever.WorldServer.Game.Group
                 if (!GetPlayerByCharacterId(member.CharacterId, out Player player))
                     continue;
 
-                player.GroupMember = null;
+                player.RemoveFromGroup(member);
             }
 
             BroadcastPacket(new ServerGroupLeave
             {
-                 GroupId = Id,
-                 Reason = RemoveReason.Disband
+                GroupId = Id,
+                Reason = RemoveReason.Disband
             });
             GroupManager.Instance.RemoveGroup(this);
         }
@@ -575,11 +577,11 @@ namespace NexusForever.WorldServer.Game.Group
         public void SetGroupFlags(GroupFlags newFlags)
         {
             bool shouldSetToRaid = !IsRaid && newFlags.HasFlag(GroupFlags.Raid);
-            Flags = newFlags; 
-            
-            if(shouldSetToRaid)
+            Flags = newFlags;
+
+            if (shouldSetToRaid)
                 ConvertToRaid();
-             
+
             BroadcastPacket(new ServerGroupFlagsChanged
             {
                 GroupId = Id,
@@ -591,11 +593,11 @@ namespace NexusForever.WorldServer.Game.Group
         /// Converts the Party to a raid
         /// </summary>
         public void ConvertToRaid()
-        { 
+        {
             SetGroupSize();
             BroadcastPacket(new ServerGroupMaxSizeChange
             {
-                GroupId = Id, 
+                GroupId = Id,
                 NewFlags = Flags,
                 NewMaxSize = MaxGroupSize
             });
@@ -605,7 +607,7 @@ namespace NexusForever.WorldServer.Game.Group
         /// Prepares the group for a readycheck
         /// </summary>
         public void PrepareForReadyCheck()
-        { 
+        {
             foreach (GroupMember member in members)
             {
                 member.PrepareForReadyCheck();
@@ -616,7 +618,7 @@ namespace NexusForever.WorldServer.Game.Group
                     IsFromPromotion = false,
                     MemberIndex = member.GroupIndex,
                     TargetedPlayer = new TargetPlayerIdentity() { CharacterId = member.CharacterId, RealmId = WorldServer.RealmId },
-                }); 
+                });
             }
         }
 
@@ -624,7 +626,7 @@ namespace NexusForever.WorldServer.Game.Group
         /// Prepares the group for a readycheck
         /// </summary>
         public void PerformReadyCheck(Player invoker, string message)
-        { 
+        {
             BroadcastPacket(new ServerGroupSendReadyCheck
             {
                 GroupId = Id,
@@ -648,20 +650,20 @@ namespace NexusForever.WorldServer.Game.Group
 
             if (!updater.CanUpdateFlags(changedFlag, member))
                 return;
-      
+
             foreach (GroupMember groupMember in members) {
                 if (groupMember.CharacterId == target.CharacterId)
-                    break; 
+                    break;
             }
-              
-            member.SetFlags(changedFlag, addPermission); 
+
+            member.SetFlags(changedFlag, addPermission);
             BroadcastPacket(new ServerGroupMemberFlagsChanged
             {
                 GroupId = Id,
                 ChangedFlags = member.Flags,
                 IsFromPromotion = false,
                 MemberIndex = member.GroupIndex,
-                TargetedPlayer = target                
+                TargetedPlayer = target
             });
         }
 
@@ -683,14 +685,14 @@ namespace NexusForever.WorldServer.Game.Group
             leader.Session.EnqueueMessageEncrypted(
                 new ServerGroupRequestJoinResponse
                 {
-                     GroupId = Id,
-                     MemberInfo = new GroupMemberInfo
-                     {
-                         Member = prospective.BuildGroupMember(),
-                         Flags = 0,  // I am assuming this is useless, the client seems todo nothing with it
-                         GroupIndex = 0, // I am assuming this is useless, the client seems todo nothing with it
-                         MemberIdentity = new TargetPlayerIdentity() {  CharacterId = prospective.CharacterId, RealmId = WorldServer.RealmId }
-                     } 
+                    GroupId = Id,
+                    MemberInfo = new GroupMemberInfo
+                    {
+                        Member = prospective.BuildGroupMember(),
+                        Flags = 0,  // I am assuming this is useless, the client seems todo nothing with it
+                        GroupIndex = 0, // I am assuming this is useless, the client seems todo nothing with it
+                        MemberIdentity = new TargetPlayerIdentity() { CharacterId = prospective.CharacterId, RealmId = WorldServer.RealmId }
+                    }
                 }
             );
         }
@@ -712,7 +714,7 @@ namespace NexusForever.WorldServer.Game.Group
                 LootRulesUnderThreshold = lootRulesUnderThreshold,
                 LootRulesThresholdAndOver = lootRulesThresholdAndOver,
                 LootThreshold = lootThreshold,
-                HarvestLootRule = harvestLootRule, 
+                HarvestLootRule = harvestLootRule,
             });
         }
 
@@ -730,12 +732,12 @@ namespace NexusForever.WorldServer.Game.Group
         /// <param name="newLeader"></param>
         public void Promote(TargetPlayerIdentity newLeader)
         {
-            GroupMember memberToPromote = Leader; 
-            foreach(GroupMember member in members)
+            GroupMember memberToPromote = Leader;
+            foreach (GroupMember member in members)
             {
-                memberToPromote = member; 
+                memberToPromote = member;
                 if (member.CharacterId == newLeader.CharacterId)
-                    break; 
+                    break;
             }
             Leader = memberToPromote;
 
@@ -784,21 +786,21 @@ namespace NexusForever.WorldServer.Game.Group
         {
             return new GroupInfo
             {
-                GroupId             = Id,
-                Flags               = Flags,
-                LeaderIdentity      = new TargetPlayerIdentity
+                GroupId = Id,
+                Flags = Flags,
+                LeaderIdentity = new TargetPlayerIdentity
                 {
-                    CharacterId     = Leader.CharacterId,
-                    RealmId         = WorldServer.RealmId
+                    CharacterId = Leader.CharacterId,
+                    RealmId = WorldServer.RealmId
                 },
-                LootRule            = lootRule,
-                LootRuleThreshold   = lootRuleThreshold,
-                LootRuleHarvest     = lootRuleHarvest,
-                LootThreshold       = lootThreshold,
-                MaxGroupSize        = MaxGroupSize,
-                MemberInfos         = BuildMembersInfo(),
-                RealmId             = WorldServer.RealmId,
-                MarkerInfo          = markerInfo.Build()
+                LootRule = lootRule,
+                LootRuleThreshold = lootRuleThreshold,
+                LootRuleHarvest = lootRuleHarvest,
+                LootThreshold = lootThreshold,
+                MaxGroupSize = MaxGroupSize,
+                MemberInfos = BuildMembersInfo(),
+                RealmId = WorldServer.RealmId,
+                MarkerInfo = markerInfo.Build()
             };
         }
 
@@ -828,8 +830,19 @@ namespace NexusForever.WorldServer.Game.Group
             return false;
         }
 
+        private GroupMember GetMembershipForGroupFromPlayer(Player player)
+        {
+            if (player.GroupMembership1.Group.Id == Id)
+                return player.GroupMembership1;
+
+            if (player.GroupMembership2.Group.Id == Id)
+                return player.GroupMembership2;
+
+            throw new InvalidOperationException("Player is not a member of this group.");
+        }
+
         private void UpdatePositions()
-        { 
+        {
             foreach (var member in members)
             {
                 if (!GetPlayerByCharacterId(member.CharacterId, out Player player))
@@ -840,8 +853,8 @@ namespace NexusForever.WorldServer.Game.Group
                     member.ZoneId = (ushort)player.Zone.Id;
                     members.ForEach(m =>
                     {
-                       if (!GetPlayerByCharacterId(m.CharacterId, out Player p))
-                           return;
+                        if (!GetPlayerByCharacterId(m.CharacterId, out Player p))
+                            return;
 
                         p.Session.EnqueueMessageEncrypted(new ServerGroupUpdatePlayerRealm
                         {
@@ -867,19 +880,19 @@ namespace NexusForever.WorldServer.Game.Group
                 {
                     update = new ServerGroupPositionUpdate
                     {
-                       GroupId = Id,
-                       Updates = new List<ServerGroupPositionUpdate.UnknownStruct0>(),
-                       ZoneId = member.ZoneId
+                        GroupId = Id,
+                        Updates = new List<ServerGroupPositionUpdate.UnknownStruct0>(),
+                        WorldId = player.Map.Entry.Id
                     };
                     updates.Add(member.ZoneId, update);
                 }
-                 
+
                 var entry = new ServerGroupPositionUpdate.UnknownStruct0
                 {
                     Identity = new TargetPlayerIdentity() { CharacterId = member.CharacterId, RealmId = WorldServer.RealmId },
-                    Flags = 3,
+                    Flags = 0,
                     Position = new Position(player.Position),
-                    Unknown0 = 1
+                    Unknown0 = 0
                 };
                 update.Updates.Add(entry);
             }
@@ -892,7 +905,33 @@ namespace NexusForever.WorldServer.Game.Group
 
                     p.Session.EnqueueMessageEncrypted(item.Value);
                 });
-            }  
-        } 
+            }
+        }
+         
+        /// <summary>
+        /// Creates a new Open world Group.
+        /// </summary>
+        /// <param name="id">The identifier of the Group.</param>
+        /// <param name="leader">The Leader of the Group</param>
+        /// <returns>The newly created group.</returns>
+        public static Group CreateOpenWorld(ulong id, Player leader) {
+            Group g = new Group(id); 
+            g.Flags |= GroupFlags.OpenWorld;
+            g.Leader = g.CreateMember(leader);  
+            return g;
+        }
+
+        /// <summary>
+        /// Creates a new Instance Group.
+        /// </summary>
+        /// <param name="id">The identifier of the Group.</param>
+        /// <param name="leader">The Leader of the Group</param>
+        /// <returns>The newly created group.</returns>
+        public static Group CreateInstance(ulong id, Player leader)
+        {
+            Group g = new Group(id);
+            g.Leader = g.CreateMember(leader); 
+            return g;
+        }
     }
 }

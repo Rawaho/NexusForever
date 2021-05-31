@@ -1,6 +1,8 @@
 ﻿using NexusForever.Shared;
 using NexusForever.WorldServer.Game.Entity;
 using NexusForever.WorldServer.Game.Group.Model;
+using NexusForever.WorldServer.Network.Message.Model;
+using NexusForever.WorldServer.Network.Message.Model.Shared;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -22,7 +24,7 @@ namespace NexusForever.WorldServer.Game.Group
             if (groupOwner.ContainsKey(player.CharacterId))
                 return null;
 
-            Group group = new Group(NextGroupId(), player);
+            Group group = Group.CreateOpenWorld(NextGroupId(), player);
             groups.Add(group.Id, group);
             groupOwner.Add(player.CharacterId, group);
 
@@ -64,17 +66,73 @@ namespace NexusForever.WorldServer.Game.Group
             return group;
         }
 
-        public bool FindGroupMembershipForPlayer(Player player, out GroupMember membership)
+        public bool FindGroupMembershipsForPlayer(Player player, out Model.GroupMember membership1, out Model.GroupMember membership2)
         {
-            foreach(Group group in groups.Values)
+            membership1 = null;
+            membership2 = null;
+
+            foreach (Group group in groups.Values)
             {
-                membership = group.FindMember(new Network.Message.Model.Shared.TargetPlayerIdentity() { CharacterId = player.CharacterId, RealmId = WorldServer.RealmId }); 
-                if (membership != null)
-                    return true;
+                Model.GroupMember membership = group.FindMember(new TargetPlayerIdentity() { CharacterId = player.CharacterId, RealmId = WorldServer.RealmId });
+
+                if (membership == null)
+                    continue;
+                
+                if (!membership.Group.IsOpenWorld) // Is Instance Group.
+                {
+                    if (membership1 != null)
+                        throw new System.InvalidOperationException("Error in restoring groups for player. Player cannot be part of two Instance groups.");
+
+                    // If this is an instance group it MUST be group1.
+                    membership1 = membership;
+                }
+
+                if (membership1 == null)
+                {
+                    membership1 = membership;
+                    continue;
+                }
+
+                if (membership2 != null)
+                    throw new System.InvalidOperationException("Error in restoring groups for player. Player cannot be part of more than two groups.");
+
+                membership2 = membership;
             }
 
-            membership = null;
-            return false;
+            return membership1 != null;
+        }
+
+        public void RestoreGroupsForPlayer(Player player)
+        {
+            if (!FindGroupMembershipsForPlayer(player, out Model.GroupMember membership, out Model.GroupMember membership2))
+                return;
+                                    
+            // Add the player back to the other group IF they are a member of one first.
+            if (membership2 != null)
+            {
+                player.AddToGroup(membership2);
+                player.Session.EnqueueMessageEncrypted(new ServerGroupJoin
+                {
+                    TargetPlayer = new TargetPlayerIdentity
+                    {
+                        CharacterId = player.CharacterId,
+                        RealmId = WorldServer.RealmId
+                    },
+                    GroupInfo = membership2.Group.Build()
+                });
+            }
+
+            // Then add them back to the main group.
+            player.AddToGroup(membership); 
+            player.Session.EnqueueMessageEncrypted(new ServerGroupJoin
+            {
+                TargetPlayer = new TargetPlayerIdentity
+                {
+                    CharacterId = player.CharacterId,
+                    RealmId = WorldServer.RealmId
+                },
+                GroupInfo = membership.Group.Build()
+            });
         }
 
         public void Update(double lastTick)

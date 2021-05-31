@@ -19,13 +19,13 @@ namespace NexusForever.WorldServer.Network.Message.Model
         }
 
         public ulong GroupId { get; set; }
-        public uint ZoneId { get; set; }
+        public uint WorldId { get; set; }
         public List<UnknownStruct0> Updates { get; set; } = new List<UnknownStruct0>();
 
         public void Write(GamePacketWriter writer)
         {
             writer.Write(GroupId);
-            writer.Write(ZoneId, 15);
+            writer.Write(WorldId, 15);
 
             writer.Write((uint)Updates.Count);
             Updates.ForEach(update => update.Identity.Write(writer));

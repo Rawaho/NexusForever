@@ -28,35 +28,56 @@ namespace NexusForever.WorldServer.Network.Message.Handler
 
         /// <summary>
         /// Asserts that the GroupId recieved from the client is a <see cref="Group"/> the Player is a member of.
-        /// </summary> 
-        public static void AssertGroupId(WorldSession session, ulong recievedGroupId)
+        /// </summary>
+        /// <param name="session">The Players current <see cref="WorldSession"/></param>
+        /// <param name="recievedGroupId">The identifier of the group the requiest is for.</param>
+        /// <param name="assertPrimaryGroup">if true; asserts that the supplied Group Id is for the primary group when the player is a member of two groups.</param>
+        public static void AssertGroupId(WorldSession session, ulong recievedGroupId, bool assertPrimaryGroup = true)
         {
-            if (session.Player.GroupMember == null || session.Player.GroupMember.Group == null)
+            // If the player is not part of a Group1 they cannot be part of a Group2 so no need to check.
+            if (session.Player.GroupMembership1 == null || session.Player.GroupMembership1.Group == null)
                 throw new InvalidPacketValueException();
+             
+            ulong sessionGroupId = session.Player.GroupMembership1.Group.Id;
+            if (sessionGroupId != recievedGroupId && assertPrimaryGroup)
+                throw new InvalidPacketValueException("Player does not belong to the group they wish to perform the action on.");
 
-            // This will need updating - we may need to track the fact the player can belong to two groups.
-            //  a "Current" and a "previous"
-            ulong sessionGroupId = session.Player.GroupMember.Group.Id;
-            if (sessionGroupId != recievedGroupId)
+            if (recievedGroupId != session.Player.GroupMembership1.Group.Id && recievedGroupId != session.Player.GroupMembership2?.Group?.Id)
                 throw new InvalidPacketValueException("Player does not belong to the group they wish to perform the action on.");
         }
 
         /// <summary>
         /// Asserts that the <see cref="Player"/> session group member can perform the requested action.
         /// </summary> 
-        public static void AssertPermission(WorldSession session, GroupMemberInfoFlags action)
+        public static void AssertPermission(WorldSession session, ulong groupID, GroupMemberInfoFlags action)
         {
-            if (!session.Player.GroupMember.Flags.HasFlag(action))
-                throw new InvalidPacketValueException("Player does not have the Group Role required to perform that action.");
+            if (session.Player.GroupMembership1.Group.Id == groupID)
+            {
+                if (!session.Player.GroupMembership1.Flags.HasFlag(action))
+                    throw new InvalidPacketValueException("Player does not have the Group Role required to perform that action.");
+            }
+            else if (session.Player.GroupMembership2.Group.Id == groupID)
+            {
+                if (!session.Player.GroupMembership2.Flags.HasFlag(action))
+                    throw new InvalidPacketValueException("Player does not have the Group Role required to perform that action.");
+            }
         }
 
         /// <summary>
         /// Asserts that the <see cref="Player"/> session group member can perform the requested action.
         /// </summary> 
-        public static void AssertGroupLeader(WorldSession session)
+        public static void AssertGroupLeader(WorldSession session, ulong groupID)
         {
-            if (!session.Player.GroupMember.IsPartyLeader)
-                throw new InvalidPacketValueException("Player must be the leader of the group to perform this action.");
+            if (session.Player.GroupMembership1.Group.Id == groupID)
+            {
+                if (!session.Player.GroupMembership1.IsPartyLeader)
+                    throw new InvalidPacketValueException("Player must be the leader of the group to perform this action.");
+            }
+            else if (session.Player.GroupMembership2.Group.Id == groupID)
+            {
+                if (!session.Player.GroupMembership2.IsPartyLeader)
+                    throw new InvalidPacketValueException("Player must be the leader of the group to perform this action.");
+            } 
         }
 
         [MessageHandler(GameMessageOpcode.ClientGroupInvite)]
@@ -69,8 +90,8 @@ namespace NexusForever.WorldServer.Network.Message.Handler
                 return;
             }
 
-            // Check if player is already grouped.
-            if (targetedPlayer.GroupMember != null)
+            // Check if targeted player is already grouped in a Group1 they cannot be re-invited, only instance finder can create an instance group.
+            if (targetedPlayer.GroupMembership1 != null)
             {
                 SendGroupResult(session, GroupResult.Grouped, targetPlayerName: groupInvite.Name);
                 return;
@@ -97,17 +118,17 @@ namespace NexusForever.WorldServer.Network.Message.Handler
                 return;
             }
 
-            if(session.Player.GroupMember == null)
+            if (session.Player.GroupMembership1 == null)
             {
                 // Player is not part of a group - lets create a new one and invite the new guy.
                 Group newGroup = GroupManager.Instance.CreateGroup(session.Player);
                 newGroup.Invite(session.Player, targetedPlayer);
-                return;
+                return; 
             }
             
             // At this point, the player must be part of a group            
-            Group group = session.Player.GroupMember.Group;
-            GroupMember membership = session.Player.GroupMember;
+            Group group = session.Player.GroupMembership1.Group;
+            GroupMember membership = session.Player.GroupMembership1;
 
             if (group.IsFull)
             {
@@ -116,27 +137,23 @@ namespace NexusForever.WorldServer.Network.Message.Handler
             }
 
             // The inviter is the Leader or has Invite permissions, so just do an invite.
-            if(group.Leader.Id == membership.Id || membership.Flags.HasFlag(GroupMemberInfoFlags.CanInvite))
-            {
+            if (group.Leader.Id == membership.Id || membership.Flags.HasFlag(GroupMemberInfoFlags.CanInvite))
                 group.Invite(session.Player, targetedPlayer); 
-            }
             else // inviter is another group memeber w/o invite permissions, so we create a referal.
-            {
                 group.ReferMember(membership, targetedPlayer);
-            }
         }
 
         [MessageHandler(GameMessageOpcode.ClientGroupRequestJoin)]
         public static void HandleJoinGroupRequest(WorldSession session, ClientGroupRequestJoin joinRequest)
         {
-            if (session.Player.GroupMember != null) // player who did /join is already in a group. This has no effect.
+            if (session.Player.GroupMembership1 != null) // player who did /join is already in a group. This has no effect.
                 return; 
 
             ICharacter target = CharacterManager.Instance.GetCharacterInfo(joinRequest.Name);
             if (!(target is Player targetedPlayer))
                 return;
                         
-            if (targetedPlayer.GroupMember == null)
+            if (targetedPlayer.GroupMembership1 == null)
             {
                 // Player and Target are not part of a group - create one for them both so /join acts as /invite.
                 Group newGroup = GroupManager.Instance.CreateGroup(session.Player);
@@ -144,11 +161,11 @@ namespace NexusForever.WorldServer.Network.Message.Handler
             }
             else
             {
-                Group group = targetedPlayer.GroupMember.Group;
-                if (targetedPlayer.GroupMember.IsPartyLeader)  // /Join was on the leader - so just do a std Join request.
+                Group group = targetedPlayer.GroupMembership1.Group;
+                if (targetedPlayer.GroupMembership1.IsPartyLeader)  // /Join was on the leader - so just do a std Join request.
                     group.HandleJoinRequest(session.Player);
                 else  //target player is not the leader of the group, so this acts as a referral 
-                    group.ReferMember(session.Player.GroupMember, targetedPlayer);
+                    group.ReferMember(session.Player.GroupMembership1, targetedPlayer);
             }
         }
 
@@ -202,7 +219,7 @@ namespace NexusForever.WorldServer.Network.Message.Handler
         public static void HandleGroupKick(WorldSession session, ClientGroupKick kick)
         {
             AssertGroupId(session, kick.GroupId);
-            AssertPermission(session, GroupMemberInfoFlags.CanKick);
+            AssertPermission(session, kick.GroupId, GroupMemberInfoFlags.CanKick);
 
             Group group = GroupManager.Instance.GetGroupById(kick.GroupId);
             if (group == null)
@@ -213,7 +230,8 @@ namespace NexusForever.WorldServer.Network.Message.Handler
 
             // I never want to leave a group with only 1 member; So as with the Leave if there would be 1 member left after this operation
             // Just .Disband() the group.
-            if (group.MemberCount == 2)
+            // TODO: If WoW is anything to go by; instance groups do NOT disband like this; once the instance is closed the group will be cleaned up.
+            if (group.MemberCount == 2 && group.IsOpenWorld)
                 group.Disband();
             else
                 group.KickMember(kick.TargetedPlayer);
@@ -233,21 +251,22 @@ namespace NexusForever.WorldServer.Network.Message.Handler
 
             // I never want to leave a group with only 1 member; So as with the Kick if there would be 1 member left after this operation
             // Just .Disband() the group.
-            if (leave.ShouldDisband || group.MemberCount == 2)
+            // TODO: If WoW is anything to go by; instance groups do NOT disband like this; once the instance is closed the group will be cleaned up.
+            if (leave.ShouldDisband || group.MemberCount == 2 && group.IsOpenWorld) 
             {
                 group.Disband();
                 return;
             }
 
-            group.RemoveMember(session.Player.GroupMember);
+            //TODO: This may not be correct? I need to look into if i can leave my main group whilst part of an instance group.
+            group.RemoveMember(session.Player.GroupMembership1);
         }
 
         [MessageHandler(GameMessageOpcode.ClientGroupMarkUnit)]
         public static void HandleGroupMarkUnit(WorldSession session, ClientGroupMark clientMark)
         {
-            AssertPermission(session, GroupMemberInfoFlags.CanMark);
-
-            ulong groupId = session.Player.GroupMember.Group.Id;
+            // Players can only mark for their Active group.
+            ulong groupId = session.Player.GroupMembership1.Group.Id;
             Group group = GroupManager.Instance.GetGroupById(groupId);
             if (group == null)
             {
@@ -255,6 +274,7 @@ namespace NexusForever.WorldServer.Network.Message.Handler
                 return;
             }
 
+            AssertPermission(session, groupId, GroupMemberInfoFlags.CanMark);
             group.MarkUnit(clientMark.UnitId, clientMark.Marker);
         }
 
@@ -262,7 +282,7 @@ namespace NexusForever.WorldServer.Network.Message.Handler
         public static void HandleGroupFlagsChanged(WorldSession session, ClientGroupFlagsChanged clientGroupFlagsChanged)
         {
             AssertGroupId(session, clientGroupFlagsChanged.GroupId);
-            AssertGroupLeader(session);
+            AssertGroupLeader(session, clientGroupFlagsChanged.GroupId);
 
             Group group = GroupManager.Instance.GetGroupById(clientGroupFlagsChanged.GroupId);
             if (group == null)
@@ -286,7 +306,7 @@ namespace NexusForever.WorldServer.Network.Message.Handler
                 return;
             }
 
-            group.UpdateMemberRole(session.Player.GroupMember, clientGroupSetRole.TargetedPlayer, clientGroupSetRole.ChangedFlag, clientGroupSetRole.CurrentFlags.HasFlag(clientGroupSetRole.ChangedFlag));
+            group.UpdateMemberRole(session.Player.GroupMembership1, clientGroupSetRole.TargetedPlayer, clientGroupSetRole.ChangedFlag, clientGroupSetRole.CurrentFlags.HasFlag(clientGroupSetRole.ChangedFlag));
         }
 
         [MessageHandler(GameMessageOpcode.ClientGroupSendReadyCheck)]
@@ -301,10 +321,10 @@ namespace NexusForever.WorldServer.Network.Message.Handler
                 return;
             }
 
-            if (group.IsRaid && !session.Player.GroupMember.IsPartyLeader)
-                AssertPermission(session, GroupMemberInfoFlags.CanReadyCheck);
+            if (group.IsRaid && !session.Player.GroupMembership1.IsPartyLeader)
+                AssertPermission(session, group.Id, GroupMemberInfoFlags.CanReadyCheck);
             else
-                AssertGroupLeader(session);
+                AssertGroupLeader(session, group.Id);
 
             group.PrepareForReadyCheck();
             group.PerformReadyCheck(session.Player, sendReadyCheck.Message);
@@ -314,7 +334,7 @@ namespace NexusForever.WorldServer.Network.Message.Handler
         public static void HandleGroupLootRulesChange(WorldSession session, ClientGroupLootRulesChange clientGroupLootRulesChange)
         {
             AssertGroupId(session, clientGroupLootRulesChange.GroupId);
-            AssertGroupLeader(session);
+            AssertGroupLeader(session, clientGroupLootRulesChange.GroupId);
 
             Group group = GroupManager.Instance.GetGroupById(clientGroupLootRulesChange.GroupId);
             group.UpdateLootRules(clientGroupLootRulesChange.LootRulesUnderThreshold, clientGroupLootRulesChange.LootRulesThresholdAndOver, clientGroupLootRulesChange.Threshold, clientGroupLootRulesChange.HarvestingRule);
