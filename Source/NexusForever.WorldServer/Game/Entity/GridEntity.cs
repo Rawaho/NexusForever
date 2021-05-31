@@ -76,6 +76,10 @@ namespace NexusForever.WorldServer.Game.Entity
             Map      = map;
             Position = vector;
 
+            uint worldAreaId = Map.File.GetWorldAreaId(vector);  
+            Zone = GameTableManager.Instance.WorldZone.GetEntry(worldAreaId);
+            OnZoneUpdate(); 
+
             UpdateVision();
             UpdateGridVision();
         }
@@ -106,6 +110,7 @@ namespace NexusForever.WorldServer.Game.Entity
             Guid        = 0;
             PreviousMap = new MapInfo(Map.Entry);
             Map         = null;
+            Zone        = null;
         }
 
         /// <summary>

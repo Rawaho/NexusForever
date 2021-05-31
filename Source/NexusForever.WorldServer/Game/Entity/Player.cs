@@ -19,6 +19,7 @@ using NexusForever.WorldServer.Game.CharacterCache;
 using NexusForever.WorldServer.Game.Entity.Network;
 using NexusForever.WorldServer.Game.Entity.Network.Model;
 using NexusForever.WorldServer.Game.Entity.Static;
+using NexusForever.WorldServer.Game.Group;
 using NexusForever.WorldServer.Game.Guild;
 using NexusForever.WorldServer.Game.Guild.Static;
 using NexusForever.WorldServer.Game.Map;
@@ -33,6 +34,7 @@ using NexusForever.WorldServer.Game.Static;
 using NexusForever.WorldServer.Network;
 using NexusForever.WorldServer.Network.Message.Model;
 using NexusForever.WorldServer.Network.Message.Model.Shared;
+using NetworkGroupMember = NexusForever.WorldServer.Network.Message.Model.Shared.GroupMember;
 
 namespace NexusForever.WorldServer.Game.Entity
 {
@@ -146,6 +148,10 @@ namespace NexusForever.WorldServer.Game.Entity
         /// 0 is always returned for online players.
         /// </remarks>
         public float? GetOnlineStatus() => 0f;
+
+        public Group.Model.GroupMember GroupMembership1 { get; private set; }
+        public Group.Model.GroupMember GroupMembership2 { get; private set; }
+        public Group.Model.GroupInvite GroupInvite { get; set; }
 
         public Inventory Inventory { get; }
         public CurrencyManager CurrencyManager { get; }
@@ -439,7 +445,10 @@ namespace NexusForever.WorldServer.Game.Entity
                     .ToList(),
                 GuildName = GuildManager.GuildAffiliation?.Name,
                 GuildType = GuildManager.GuildAffiliation?.Type ?? GuildType.None,
-                PvPFlag   = PvPFlag.Disabled
+                PvPFlag   = PvPFlag.Disabled,
+
+                // We use Group 1 as the "dominant group"
+                GroupId   = GroupMembership1 == null ? 0 : GroupMembership1.Group.Id
             };
         }
 
@@ -576,10 +585,13 @@ namespace NexusForever.WorldServer.Game.Entity
             AchievementManager.SendInitialPackets(null);
             Session.EntitlementManager.SendInitialPackets();
 
+            GroupManager.Instance.RestoreGroupsForPlayer(this);
+
             Session.EnqueueMessageEncrypted(new ServerPlayerInnate
             {
                 InnateIndex = InnateIndex
             });
+            Session.EnqueueMessage(new ServerUpdatePhase());
         }
 
         public ItemProficiency GetItemProficiencies()
@@ -985,6 +997,27 @@ namespace NexusForever.WorldServer.Game.Entity
         }
 
         /// <summary>
+        /// Build the <see cref="GroupMember"/> instance for the <see cref="Player"/>
+        /// </summary>
+        public NetworkGroupMember BuildGroupMember()
+        {
+            return new NetworkGroupMember
+            {
+                Name            = Name,
+                Faction         = Faction1,
+                Race            = Race,
+                Class           = Class,
+                Sex             = Sex,
+                Level           = (byte)Level,
+                EffectiveLevel  = (byte)Level,
+                Path            = Path,
+                Realm           = WorldServer.RealmId,
+                WorldZoneId     = (ushort)Zone.Id,
+                MapId           = Map.Entry.Id,
+                SyncedToGroup   = true
+            };
+        }
+        
         /// Add a new <see cref="CharacterFlag"/>.
         /// </summary>
         public void SetFlag(CharacterFlag flag)
@@ -1019,6 +1052,56 @@ namespace NexusForever.WorldServer.Game.Entity
             {
                 Flags = flags
             });
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="membership"></param>
+        /// <returns></returns>
+        public void AddToGroup(Group.Model.GroupMember membership)
+        {
+            if (GroupMembership2 != null)
+                throw new InvalidOperationException("Player cannot be a member of more than two groups.");
+
+            if (GroupMembership1 != null)
+                GroupMembership2 = GroupMembership1;
+
+            GroupMembership1 = membership;
+            EnqueueToVisible(membership.BuildGroupAssociation());
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="membership"></param>
+        public void RemoveFromGroup(Group.Model.GroupMember membership)
+        {
+            if (GroupMembership2 != null && membership.Group.Id == GroupMembership2.Group.Id)
+            {
+                // We are being removed from group 2
+                // No need to send a ServerEntityGroupAssociation packet, we already know we are a member of group 1 over this.
+                GroupMembership2 = null;
+            }
+            else if (membership.Group.Id == GroupMembership1.Group.Id)
+            {
+                // We are being removed from Group 1
+                if (GroupMembership2 != null)
+                {
+                    GroupMembership1 = GroupMembership2;
+                    GroupMembership2 = null;
+                    EnqueueToVisible(membership.BuildGroupAssociation());
+                }
+                else
+                {
+                    GroupMembership1 = null;
+                    EnqueueToVisible(new ServerEntityGroupAssociation { UnitId = Guid, GroupId = 0 });
+                }
+            }
+            else
+            {
+                throw new InvalidOperationException("Player is not a member of the group you want to remove them from.");
+            }
         }
     }
 }

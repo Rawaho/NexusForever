@@ -29,6 +29,7 @@ using NexusForever.WorldServer.Game.Spell;
 using NexusForever.WorldServer.Game.Storefront;
 using NexusForever.WorldServer.Game.TextFilter;
 using NexusForever.WorldServer.Network;
+using NexusForever.WorldServer.Game.Group;
 
 namespace NexusForever.WorldServer
 {
@@ -109,6 +110,7 @@ namespace NexusForever.WorldServer
                 ResidenceManager.Instance.Update(lastTick);
                 BuybackManager.Instance.Update(lastTick);
                 GlobalQuestManager.Instance.Update(lastTick);
+                GroupManager.Instance.Update(lastTick);
                 GlobalGuildManager.Instance.Update(lastTick);
                 GlobalChatManager.Instance.Update(lastTick);
 
